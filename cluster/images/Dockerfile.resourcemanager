@@ -1,0 +1,40 @@
+# Dockerfile for Hadoop ResourceManager
+# Inherits from Dockerfile.base
+# Role: YARN ResourceManager (manages resources and schedules applications)
+
+ARG HADOOP_BASE_IMAGE=hadoop:base
+
+FROM ${HADOOP_BASE_IMAGE}
+
+LABEL role="resourcemanager" \
+      description="Hadoop 3.3.6 ResourceManager - YARN Master"
+
+USER root
+
+# Copy ResourceManager-specific entrypoint
+COPY scripts/entrypoint-resourcemanager.sh /opt/hadoop/scripts/entrypoint.sh
+
+# Make scripts executable
+RUN chmod +x /opt/hadoop/scripts/*.sh && \
+    chown -R hadoop:hadoop /opt/hadoop /opt/hadoop-3.3.6
+
+# Create YARN cache directory
+RUN mkdir -p /var/lib/hadoop-yarn/cache && \
+    chown hadoop:hadoop /var/lib/hadoop-yarn/cache
+
+USER hadoop
+
+# Expose ResourceManager ports
+# 8088: ResourceManager Web UI
+# 8032: ResourceManager applications manager interface
+# 8030: ResourceManager scheduler interface
+# 8031: ResourceManager resource tracker interface
+EXPOSE 8088 8032 8030 8031 22
+
+# Healthcheck: verify ResourceManager is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD yarn cluster-info || exit 1
+
+# Set entrypoint with HADOOP_ROLE override
+ENV HADOOP_ROLE=resourcemanager
+ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]

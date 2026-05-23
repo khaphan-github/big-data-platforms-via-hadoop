@@ -1,0 +1,79 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
+    HADOOP_HOME=/opt/hadoop \
+    HADOOP_VERSION=3.3.6 \
+    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin:/opt/hadoop/bin:/opt/hadoop/sbin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-11-jdk-headless \
+    openssh-server \
+    openssh-client \
+    curl \
+    wget \
+    vim \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    sudo \
+    less \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY download/hadoop-3.3.6.tar.gz /tmp/hadoop-3.3.6.tar.gz
+COPY config/core-site.xml /tmp/core-site.xml
+COPY config/hdfs-site.xml /tmp/hdfs-site.xml
+COPY config/mapred-site.xml /tmp/mapred-site.xml
+COPY config/yarn-site.xml /tmp/yarn-site.xml
+
+RUN test -f /tmp/hadoop-3.3.6.tar.gz && \
+    mkdir -p /opt && \
+    tar -xzf /tmp/hadoop-3.3.6.tar.gz -C /opt && \
+    test -x /opt/hadoop-3.3.6/bin/hadoop && \
+    ln -s /opt/hadoop-3.3.6 /opt/hadoop && \
+    rm -f /tmp/hadoop-3.3.6.tar.gz && \
+    chown -R root:root /opt/hadoop-3.3.6 /opt/hadoop
+
+# Copy Hadoop configuration files
+RUN mkdir -p /opt/hadoop/etc/hadoop && \
+    cp /tmp/core-site.xml /opt/hadoop/etc/hadoop/ && \
+    cp /tmp/hdfs-site.xml /opt/hadoop/etc/hadoop/ && \
+    cp /tmp/mapred-site.xml /opt/hadoop/etc/hadoop/ && \
+    cp /tmp/yarn-site.xml /opt/hadoop/etc/hadoop/ && \
+    chown -R hadoop:hadoop /opt/hadoop/etc/hadoop && \
+    rm -f /tmp/*.xml
+
+RUN groupadd -r hadoop && useradd -r -g hadoop hadoop
+
+RUN mkdir -p /var/lib/hadoop-hdfs/cache \
+    /var/lib/hadoop-yarn/cache \
+    /var/log/hadoop-hdfs \
+    /var/log/hadoop-yarn \
+    /var/log/hadoop \
+    /opt/hadoop-logs && \
+    chown -R hadoop:hadoop /var/lib/hadoop-* \
+    /var/log/hadoop* \
+    /opt/hadoop-logs
+
+RUN mkdir -p /var/run/sshd && \
+    mkdir -p /home/hadoop/.ssh && \
+    chown hadoop:hadoop /home/hadoop/.ssh && \
+    chmod 700 /home/hadoop/.ssh
+
+RUN su - hadoop -c "ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa && \
+    cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && \
+    chmod 600 ~/.ssh/authorized_keys"
+
+# Expose common ports
+# NameNode Web UI: 50070
+# NameNode RPC: 9000
+# ResourceManager Web UI: 8088
+# NodeManager Web UI: 8042
+# DataNode Web UI: 50075
+# Secondary NameNode: 50090
+EXPOSE 50070 9000 8088 8042 50075 50090 22
+
+WORKDIR /opt/hadoop
+
+USER hadoop
+CMD ["bash"]

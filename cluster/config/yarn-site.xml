@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+  <!-- ResourceManager Configuration -->
+  <property>
+    <name>yarn.resourcemanager.hostname</name>
+    <value>resourcemanager</value>
+    <description>The hostname of the ResourceManager.</description>
+  </property>
+
+  <!-- ResourceManager Address -->
+  <property>
+    <name>yarn.resourcemanager.address</name>
+    <value>resourcemanager:8032</value>
+    <description>The address of the applications manager interface in the ResourceManager.</description>
+  </property>
+
+  <!-- ResourceManager Scheduler Address -->
+  <property>
+    <name>yarn.resourcemanager.scheduler.address</name>
+    <value>resourcemanager:8030</value>
+    <description>The address of the scheduler interface.</description>
+  </property>
+
+  <!-- ResourceManager Web UI -->
+  <property>
+    <name>yarn.resourcemanager.webapp.address</name>
+    <value>0.0.0.0:8088</value>
+    <description>The http address of the ResourceManager web application.</description>
+  </property>
+
+  <!-- NodeManager Configuration -->
+  <property>
+    <name>yarn.nodemanager.aux-services</name>
+    <value>mapreduce_shuffle</value>
+    <description>shuffle service that needs to be set for Map Reduce to run.</description>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.aux-services.mapreduce_shuffle.class</name>
+    <value>org.apache.hadoop.mapred.ShuffleHandler</value>
+  </property>
+
+  <!-- NodeManager Resource Configuration -->
+  <property>
+    <name>yarn.nodemanager.resource.memory-mb</name>
+    <value>2048</value>
+    <description>Amount of physical memory, in MB, that can be allocated for containers.</description>
+  </property>
+
+  <property>
+    <name>yarn.nodemanager.resource.cpu-vcores</name>
+    <value>2</value>
+    <description>Number of CPU cores that can be allocated for containers.</description>
+  </property>
+
+  <!-- NodeManager Web UI -->
+  <property>
+    <name>yarn.nodemanager.webapp.address</name>
+    <value>0.0.0.0:8042</value>
+    <description>The http address of the NodeManager web application.</description>
+  </property>
+
+  <!-- NodeManager RPC Address -->
+  <property>
+    <name>yarn.nodemanager.bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+
+  <!-- Scheduler Configuration -->
+  <property>
+    <name>yarn.resourcemanager.scheduler.class</name>
+    <value>org.apache.hadoop.yarn.server.resourcemanager.scheduler.capacity.CapacityScheduler</value>
+    <description>The class to use as the resource scheduler.</description>
+  </property>
+
+  <!-- Application Master Configuration -->
+  <property>
+    <name>yarn.app.mapreduce.am.resource.mb</name>
+    <value>512</value>
+    <description>The amount of memory the MR AppMaster needs.</description>
+  </property>
+
+  <!-- Container Configuration -->
+  <property>
+    <name>yarn.scheduler.minimum-allocation-mb</name>
+    <value>256</value>
+    <description>Minimum limit of memory to allocate to each container request at the ResourceManager.</description>
+  </property>
+
+  <property>
+    <name>yarn.scheduler.maximum-allocation-mb</name>
+    <value>2048</value>
+    <description>Maximum limit of memory to allocate to each container request at the ResourceManager.</description>
+  </property>
+
+</configuration>

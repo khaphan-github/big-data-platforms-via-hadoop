@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+  <!-- NameNode Configuration -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:///var/lib/hadoop-hdfs/cache/dfs/name</value>
+    <description>Determines where on the local filesystem the DFS namenode should store the fsimage file.</description>
+  </property>
+
+  <!-- DataNode Configuration -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:///var/lib/hadoop-hdfs/cache/dfs/data</value>
+    <description>Determines where datanode should store its blocks.</description>
+  </property>
+
+  <!-- Replication Factor -->
+  <property>
+    <name>dfs.replication</name>
+    <value>2</value>
+    <description>Default block replication.</description>
+  </property>
+
+  <!-- Block Size -->
+  <property>
+    <name>dfs.blocksize</name>
+    <value>134217728</value>
+    <description>The default block size for new files.</description>
+  </property>
+
+  <!-- NameNode HTTP Address -->
+  <property>
+    <name>dfs.namenode.http-address</name>
+    <value>0.0.0.0:50070</value>
+    <description>The address and the base port where the dfs namenode web ui will listen on.</description>
+  </property>
+
+  <!-- DataNode HTTP Address -->
+  <property>
+    <name>dfs.datanode.http.address</name>
+    <value>0.0.0.0:50075</value>
+    <description>The address where the datanode web ui will listen on.</description>
+  </property>
+
+  <!-- Secondary NameNode Configuration -->
+  <property>
+    <name>dfs.secondary.namenode.http-address</name>
+    <value>0.0.0.0:50090</value>
+    <description>The address where the secondary namenode web ui will listen on.</description>
+  </property>
+
+  <!-- NameNode RPC Server Address -->
+  <property>
+    <name>dfs.namenode.rpc-bind-host</name>
+    <value>0.0.0.0</value>
+  </property>
+
+</configuration>

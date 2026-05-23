@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+  <!-- Filesystem Configuration -->
+  <property>
+    <name>fs.defaultFS</name>
+    <value>hdfs://namenode:9000</value>
+    <description>The name of the default file system.</description>
+  </property>
+
+  <!-- Hadoop Temporary Directory -->
+  <property>
+    <name>hadoop.tmp.dir</name>
+    <value>/var/lib/hadoop/tmp</value>
+    <description>A base for other temporary directories.</description>
+  </property>
+
+  <!-- Proxy User Configuration for Hive/Spark -->
+  <property>
+    <name>hadoop.proxyuser.hive.hosts</name>
+    <value>*</value>
+  </property>
+
+  <property>
+    <name>hadoop.proxyuser.hive.groups</name>
+    <value>*</value>
+  </property>
+
+  <property>
+    <name>hadoop.proxyuser.spark.hosts</name>
+    <value>*</value>
+  </property>
+
+  <property>
+    <name>hadoop.proxyuser.spark.groups</name>
+    <value>*</value>
+  </property>
+
+</configuration>

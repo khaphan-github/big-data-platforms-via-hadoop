@@ -1,0 +1,37 @@
+# Dockerfile for Hadoop NameNode
+# Inherits from Dockerfile.base
+# Role: HDFS NameNode (manages filesystem namespace and filesystem tree)
+
+ARG HADOOP_BASE_IMAGE=hadoop:base
+
+FROM ${HADOOP_BASE_IMAGE}
+
+LABEL role="namenode" \
+      description="Hadoop 3.3.6 NameNode - HDFS Master"
+
+USER root
+
+# Copy NameNode-specific entrypoint
+COPY scripts/entrypoint-namenode.sh /opt/hadoop/scripts/entrypoint.sh
+
+# Make scripts executable
+RUN chmod +x /opt/hadoop/scripts/*.sh && \
+    chown -R hadoop:hadoop /opt/hadoop /opt/hadoop-3.3.6
+
+# Create NameNode data directory
+RUN mkdir -p /var/lib/hadoop-hdfs/cache/dfs/name && \
+    chown hadoop:hadoop /var/lib/hadoop-hdfs/cache/dfs/name
+
+USER hadoop
+
+# Expose NameNode ports
+# 50070: NameNode Web UI
+# 9000: NameNode RPC (HDFS protocol)
+EXPOSE 50070 9000 22
+
+# Healthcheck: verify NameNode is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD hdfs dfsadmin -report || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]

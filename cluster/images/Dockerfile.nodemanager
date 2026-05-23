@@ -1,0 +1,38 @@
+# Dockerfile for Hadoop NodeManager
+# Inherits from Dockerfile.base
+# Role: YARN NodeManager (manages compute resources on individual nodes)
+
+ARG HADOOP_BASE_IMAGE=hadoop:base
+
+FROM ${HADOOP_BASE_IMAGE}
+
+LABEL role="nodemanager" \
+      description="Hadoop 3.3.6 NodeManager - YARN Worker"
+
+USER root
+
+# Copy NodeManager-specific entrypoint
+COPY scripts/entrypoint-nodemanager.sh /opt/hadoop/scripts/entrypoint.sh
+
+# Make scripts executable
+RUN chmod +x /opt/hadoop/scripts/*.sh && \
+    chown -R hadoop:hadoop /opt/hadoop /opt/hadoop-3.3.6
+
+# Create YARN cache directory
+RUN mkdir -p /var/lib/hadoop-yarn/cache && \
+    chown hadoop:hadoop /var/lib/hadoop-yarn/cache
+
+USER hadoop
+
+# Expose NodeManager ports
+# 8042: NodeManager Web UI
+# 8041: NodeManager IPC handler
+EXPOSE 8042 8041 22
+
+# Healthcheck: verify NodeManager is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD yarn node -list || exit 1
+
+# Set entrypoint with HADOOP_ROLE override
+ENV HADOOP_ROLE=nodemanager
+ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]
