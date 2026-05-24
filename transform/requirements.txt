@@ -1,6 +1,7 @@
 pyspark==3.5.0
-vntokenizer==4.1
+# vntokenizer==4.1
 numpy
 pandas
 schedule
 requests
+pyvi
