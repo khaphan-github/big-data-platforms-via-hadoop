@@ -331,6 +331,36 @@ services:
       retries: 3
       start_period: 40s
 
+  # Apache NiFi
+  nifi:
+    image: cluster-nifi-1.25.0:latest
+    build:
+      context: .
+      dockerfile: images/Dockerfile.nifi
+    container_name: nifi
+    hostname: nifi
+    ports:
+      - "8161:8161" # Web UI
+    volumes:
+      - nifi-data:/var/lib/nifi/data
+      - nifi-conf:/var/lib/nifi/conf
+      - nifi-logs:/var/log/nifi
+      - ./config/nifi.properties:/opt/nifi-1.25.0/conf/nifi.properties
+    environment:
+      - NIFI_WEB_HTTP_PORT=8161
+      - NIFI_CLUSTER_IS_NODE=false
+    # depends_on:
+    # namenode:
+    # condition: service_healthy
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8161/nifi"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 # Volumes (persistent storage)
 volumes:
   namenode-data:
@@ -368,6 +398,12 @@ volumes:
   spark-worker2-work:
     driver: local
   spark-worker2-logs:
+    driver: local
+  nifi-data:
+    driver: local
+  nifi-conf:
+    driver: local
+  nifi-logs:
     driver: local
 
 # Network

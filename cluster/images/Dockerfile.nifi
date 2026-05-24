@@ -1,0 +1,56 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
+    NIFI_HOME=/opt/nifi \
+    NIFI_VERSION=1.25.0 \
+    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin:/opt/nifi/bin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-11-jdk-headless \
+    curl \
+    wget \
+    vim \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create NiFi user
+RUN groupadd -r nifi && useradd -r -g nifi nifi
+
+# Copy NiFi binary
+COPY download/nifi-1.25.0-bin.zip /tmp/nifi-1.25.0-bin.zip
+
+# Extract and setup NiFi
+RUN test -f /tmp/nifi-1.25.0-bin.zip && \
+    mkdir -p /opt && \
+    unzip -q /tmp/nifi-1.25.0-bin.zip -d /opt && \
+    test -x /opt/nifi-1.25.0/bin/nifi.sh && \
+    ln -s /opt/nifi-1.25.0 /opt/nifi && \
+    rm -f /tmp/nifi-1.25.0-bin.zip && \
+    chown -R nifi:nifi /opt/nifi-1.25.0 /opt/nifi
+
+# Create necessary directories for NiFi data persistence
+RUN mkdir -p /var/lib/nifi/data \
+    /var/lib/nifi/conf \
+    /var/log/nifi && \
+    chown -R nifi:nifi /var/lib/nifi /var/log/nifi
+
+# Change to NiFi user
+USER nifi
+
+# Set NiFi environment variables
+ENV NIFI_WEB_HTTP_PORT=8161 \
+    NIFI_CLUSTER_IS_NODE=false \
+    NIFI_CLUSTER_NODE_PROTOCOL_PORT=8080
+
+EXPOSE 8161
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+    CMD curl -f http://localhost:8161/nifi/ || exit 1
+
+# Start NiFi and keep container running by tailing logs
+CMD ["/bin/bash", "-c", "/opt/nifi-1.25.0/bin/nifi.sh start && sleep 2 && tail -f /opt/nifi-1.25.0/logs/nifi-app.log"]
