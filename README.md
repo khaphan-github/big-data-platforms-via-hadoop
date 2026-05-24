@@ -31,7 +31,7 @@ Analyze trending keywords from Vietnamese news using Hadoop, Spark, and FastAPI.
 
 | Service              | URL                        |
 | -------------------- | -------------------------- |
-| HDFS NameNode        | http://localhost:9870      |
+| HDFS NameNode        | http://localhost:50070      |
 | YARN ResourceManager | http://localhost:8088      |
 | Spark Master         | http://localhost:8080      |
 | Apache NiFi          | http://localhost:8161/nifi |
