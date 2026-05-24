@@ -11,7 +11,7 @@ from pyspark.sql.types import ArrayType, StringType
 import os
 import sys
 from datetime import datetime
-from tokenizer_handler import TokenizerHandler
+from transform.keywords.tokenizer_handler import TokenizerHandler
 
 
 class TrendingWordsSparkJob:
@@ -122,7 +122,6 @@ def main():
     
     job = TrendingWordsSparkJob(hdfs_base, hdfs_output)
     job.run()
-
 
 if __name__ == "__main__":
     main()
