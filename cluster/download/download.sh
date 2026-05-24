@@ -1,4 +1,12 @@
 #!/bin/bash
+# Download MySQL (only if not exists)
+if [ ! -f "mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz" ] && [ ! -d "mysql-8.0.39-linux-glibc2.28-x86_64" ]; then
+    echo "[MySQL] Downloading mysql-8.0.39..."
+    curl -fSL "https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz" -o "mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz"
+    echo "[MySQL] Downloaded successfully"
+else
+    echo "[MySQL] Already exists, skipping download"
+fi
 
 # Download Spark (only if not exists)
 if [ ! -f "spark-3.5.0-bin-hadoop3.tgz" ] && [ ! -d "spark-3.5.0-bin-hadoop3" ]; then
@@ -26,3 +34,5 @@ if [ ! -f "nifi-1.25.0-bin.zip" ] && [ ! -d "nifi-1.25.0" ]; then
 else
     echo "[NiFi] Already exists, skipping download"
 fi
+
+

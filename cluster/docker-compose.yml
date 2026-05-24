@@ -361,6 +361,38 @@ services:
       retries: 3
       start_period: 40s
 
+  # MySQL Database
+  mysql:
+    image: cluster-mysql-8.0:latest
+    build:
+      context: .
+      dockerfile: images/Dockerfile.mysql
+    container_name: mysql-db
+    hostname: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - mysql-logs:/var/log/mysql
+      - ./config/my.cnf:/etc/mysql/my.cnf:ro
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mysql/bin/mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
 # Volumes (persistent storage)
 volumes:
   namenode-data:
@@ -404,6 +436,10 @@ volumes:
   nifi-conf:
     driver: local
   nifi-logs:
+    driver: local
+  mysql-data:
+    driver: local
+  mysql-logs:
     driver: local
 
 # Network

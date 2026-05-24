@@ -1,0 +1,52 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MYSQL_HOME=/opt/mysql \
+    MYSQL_VERSION=8.0 \
+    PATH=$PATH:/opt/mysql/bin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    wget \
+    vim \
+    net-tools \
+    iputils-ping \
+    dnsutils \
+    sudo \
+    less \
+    libc6 \
+    libncurses6 \
+    libnuma1 \
+    libssl1.1 \
+    libaio1 \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create mysql user and directories
+RUN groupadd -r mysql && useradd -r -g mysql mysql && \
+    mkdir -p /var/lib/mysql /var/log/mysql /var/run/mysqld && \
+    chown -R mysql:mysql /var/lib/mysql /var/log/mysql /var/run/mysqld && \
+    chmod 755 /var/lib/mysql /var/log/mysql /var/run/mysqld
+
+# Copy MySQL tarball and extract
+COPY download/mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz /tmp/mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz
+RUN cd /opt && \
+    tar -xf /tmp/mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz && \
+    ln -s /opt/mysql-8.0.39-linux-glibc2.28-x86_64 /opt/mysql && \
+    chown -R mysql:mysql /opt/mysql-8.0.39-linux-glibc2.28-x86_64 && \
+    rm /tmp/mysql-8.0.39-linux-glibc2.28-x86_64.tar.xz
+
+# Copy configuration
+COPY config/my.cnf /etc/mysql/my.cnf
+RUN chmod 644 /etc/mysql/my.cnf && chown mysql:mysql /etc/mysql/my.cnf
+
+# Pre-initialize MySQL database
+RUN /opt/mysql/bin/mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql --default-storage-engine=InnoDB
+
+# Copy init script
+COPY scripts/init-mysql.sh /init-mysql.sh
+RUN chmod +x /init-mysql.sh
+
+EXPOSE 3306
+
+CMD ["/init-mysql.sh"]
