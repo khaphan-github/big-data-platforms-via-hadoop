@@ -9,6 +9,11 @@ export SPARK_LOCAL_IP=0.0.0.0
 # Set Java home
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 
+# Hadoop configuration
+export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+export HADOOP_HOME=/opt/hadoop
+export LD_LIBRARY_PATH=$HADOOP_HOME/lib/native:$LD_LIBRARY_PATH
+
 # Spark ports
 export SPARK_MASTER_PORT=7077
 export SPARK_MASTER_WEBUI_PORT=8080

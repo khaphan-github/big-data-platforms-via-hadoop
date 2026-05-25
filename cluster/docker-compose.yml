@@ -249,6 +249,9 @@ services:
       - spark-master-logs:/var/log/spark
       - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
       - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
     environment:
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
@@ -282,6 +285,9 @@ services:
       - spark-worker1-logs:/var/log/spark
       - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
       - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
     environment:
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
@@ -315,6 +321,9 @@ services:
       - spark-worker2-logs:/var/log/spark
       - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
       - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
     environment:
       - SPARK_MASTER_HOST=spark-master
       - SPARK_MASTER_PORT=7077
@@ -330,6 +339,36 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  # JupyterLab for interactive testing
+  jupyterlab:
+    image: jupyter/datascience-notebook:latest
+    container_name: jupyterlab
+    hostname: jupyterlab
+    ports:
+      - "8888:8888" # Jupyter Web UI
+    volumes:
+      - jupyterlab-notebooks:/notebooks
+      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+      - ./config/spark-env.sh:/opt/spark-env.sh:ro
+    environment:
+      - SPARK_MASTER=spark://spark-master:7077
+      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
+      - HADOOP_HOME=/opt/hadoop
+      - JUPYTER_ENABLE_LAB=yes
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/api/kernels"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   # Apache NiFi
   nifi:
@@ -442,6 +481,8 @@ volumes:
   mysql-data:
     driver: local
   mysql-logs:
+    driver: local
+  jupyterlab-notebooks:
     driver: local
 
 # Network
