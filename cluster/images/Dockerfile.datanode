@@ -1,7 +1,3 @@
-# Dockerfile for Hadoop DataNode
-# Inherits from Dockerfile.base
-# Role: HDFS DataNode (stores actual data blocks and performs block creation, deletion, replication)
-
 ARG HADOOP_BASE_IMAGE=hadoop:base
 
 FROM ${HADOOP_BASE_IMAGE}
@@ -24,16 +20,6 @@ RUN mkdir -p /var/lib/hadoop-hdfs/cache/dfs/data && \
 
 USER hadoop
 
-# Expose DataNode ports
-# 50075: DataNode Web UI
-# 50010: DataNode data transfer (block protocol)
-# 50020: DataNode IPC server port
-EXPOSE 50075 50010 50020 22
+EXPOSE 9864
 
-# Healthcheck: verify DataNode can be contacted
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD hdfs dfsadmin -getDatanodeInfo || exit 1
-
-# Set entrypoint with HADOOP_ROLE override
-ENV HADOOP_ROLE=datanode
 ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]

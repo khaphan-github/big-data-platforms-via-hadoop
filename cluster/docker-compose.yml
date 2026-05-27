@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   hadoop-base:
     image: cluster-hadoop-3.3.6:base
@@ -20,28 +18,18 @@ services:
     container_name: hadoop-namenode
     hostname: namenode
     ports:
-      - "9000:9000" # RPC
-      - "9870:9870" # Web UI (3.3+)
-      - "50070:50070" # Web UI (actual port)
+      - "9870:9870"
     volumes:
-      - namenode-data:/var/lib/hadoop-hdfs/cache
-      - namenode-logs:/var/log/hadoop-hdfs
       - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - NAMENODE_HOST=namenode
-      - DFS_REPLICATION=2
-      - DFS_BLOCKSIZE=134217728
     networks:
       - hadoop-cluster
     healthcheck:
       test: ["CMD", "hdfs", "dfsadmin", "-report"]
-      interval: 30s
+      interval: 10s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 10s
 
   datanode1:
     image: cluster-hadoop-3.3.6:datanode
@@ -52,31 +40,14 @@ services:
         HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
     container_name: hadoop-datanode1
     hostname: datanode1
-    ports:
-      - "50075:50075" # Web UI
-      - "50010:50010" # Data transfer
     volumes:
-      - datanode1-data:/var/lib/hadoop-hdfs/cache
-      - datanode1-logs:/var/log/hadoop-hdfs
       - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - NAMENODE_HOST=namenode
-      - DFS_REPLICATION=2
-      - DFS_BLOCKSIZE=134217728
     depends_on:
       namenode:
         condition: service_healthy
     networks:
       - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:50075"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   datanode2:
     image: cluster-hadoop-3.3.6:datanode
@@ -87,403 +58,197 @@ services:
         HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
     container_name: hadoop-datanode2
     hostname: datanode2
-    ports:
-      - "50076:50075" # Web UI (port mapped)
-      - "50011:50010" # Data transfer
     volumes:
-      - datanode2-data:/var/lib/hadoop-hdfs/cache
-      - datanode2-logs:/var/log/hadoop-hdfs
       - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - NAMENODE_HOST=namenode
-      - DFS_REPLICATION=2
-      - DFS_BLOCKSIZE=134217728
     depends_on:
       namenode:
         condition: service_healthy
     networks:
       - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:50075"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # YARN Cluster
-  resourcemanager:
-    image: cluster-hadoop-3.3.6:resourcemanager
-    build:
-      context: .
-      dockerfile: images/Dockerfile.resourcemanager
-      args:
-        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
-    container_name: hadoop-resourcemanager
-    hostname: resourcemanager
-    ports:
-      - "8088:8088" # Web UI
-      - "8032:8032" # App Manager RPC
-      - "8030:8030" # Scheduler RPC
-      - "8031:8031" # Resource Tracker RPC
-    volumes:
-      - resourcemanager-data:/var/lib/hadoop-yarn/cache
-      - resourcemanager-logs:/var/log/hadoop-yarn
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - RESOURCEMANAGER_HOST=resourcemanager
-      - NAMENODE_HOST=namenode
-    depends_on:
-      namenode:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8088"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # # Spark Cluster
+  # spark-base:
+  #   image: cluster-spark-3.5.0:base
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.spark-base
+  #   profiles:
+  #     - build-only
 
-  nodemanager1:
-    image: cluster-hadoop-3.3.6:nodemanager
-    build:
-      context: .
-      dockerfile: images/Dockerfile.nodemanager
-      args:
-        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
-    container_name: hadoop-nodemanager1
-    hostname: nodemanager1
-    ports:
-      - "8042:8042" # Web UI
-      - "8041:8041" # IPC
-    volumes:
-      - nodemanager1-data:/var/lib/hadoop-yarn/cache
-      - nodemanager1-logs:/var/log/hadoop-yarn
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - RESOURCEMANAGER_HOST=resourcemanager
-      - NAMENODE_HOST=namenode
-      - NODEMANAGER_MEMORY_MB=2048
-      - NODEMANAGER_VCORES=2
-    depends_on:
-      resourcemanager:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8042"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # spark-master:
+  #   image: cluster-spark-3.5.0:master
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.spark-master
+  #     args:
+  #       SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+  #   container_name: spark-master
+  #   hostname: spark-master
+  #   ports:
+  #     - "7077:7077" # Master RPC
+  #     - "8080:8080" # Web UI
+  #     - "4040:4040" # Driver Web UI
+  #   volumes:
+  #     - spark-master-work:/var/lib/spark/work
+  #     - spark-master-logs:/var/log/spark
+  #     - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+  #     - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #     - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+  #     - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  #     - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+  #   environment:
+  #     - SPARK_MASTER_HOST=spark-master
+  #     - SPARK_MASTER_PORT=7077
+  #     - SPARK_MASTER_WEBUI_PORT=8080
+  #   depends_on:
+  #     namenode:
+  #       condition: service_healthy
+  #   networks:
+  #     - hadoop-cluster
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8080"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
-  nodemanager2:
-    image: cluster-hadoop-3.3.6:nodemanager
-    build:
-      context: .
-      dockerfile: images/Dockerfile.nodemanager
-      args:
-        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
-    container_name: hadoop-nodemanager2
-    hostname: nodemanager2
-    ports:
-      - "8043:8042" # Web UI (port mapped)
-      - "8044:8041" # IPC
-    volumes:
-      - nodemanager2-data:/var/lib/hadoop-yarn/cache
-      - nodemanager2-logs:/var/log/hadoop-yarn
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/yarn-site.xml:/opt/hadoop/etc/hadoop/yarn-site.xml:ro
-    environment:
-      - RESOURCEMANAGER_HOST=resourcemanager
-      - NAMENODE_HOST=namenode
-      - NODEMANAGER_MEMORY_MB=2048
-      - NODEMANAGER_VCORES=2
-    depends_on:
-      resourcemanager:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8042"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # spark-worker1:
+  #   image: cluster-spark-3.5.0:worker
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.spark-worker
+  #     args:
+  #       SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+  #   container_name: spark-worker1
+  #   hostname: spark-worker1
+  #   ports:
+  #     - "8081:8081" # Web UI
+  #     - "4041:4040" # Executor Web UI
+  #   volumes:
+  #     - spark-worker1-work:/var/lib/spark/work
+  #     - spark-worker1-logs:/var/log/spark
+  #     - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+  #     - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #     - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+  #     - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  #     - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+  #   environment:
+  #     - SPARK_MASTER_HOST=spark-master
+  #     - SPARK_MASTER_PORT=7077
+  #     - SPARK_WORKER_WEBUI_PORT=8081
+  #   depends_on:
+  #     spark-master:
+  #       condition: service_healthy
+  #   networks:
+  #     - hadoop-cluster
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8081"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
-  # Spark Cluster
-  spark-base:
-    image: cluster-spark-3.5.0:base
-    build:
-      context: .
-      dockerfile: images/Dockerfile.spark-base
-    profiles:
-      - build-only
-
-  spark-master:
-    image: cluster-spark-3.5.0:master
-    build:
-      context: .
-      dockerfile: images/Dockerfile.spark-master
-      args:
-        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
-    container_name: spark-master
-    hostname: spark-master
-    ports:
-      - "7077:7077" # Master RPC
-      - "8080:8080" # Web UI
-      - "4040:4040" # Driver Web UI
-    volumes:
-      - spark-master-work:/var/lib/spark/work
-      - spark-master-logs:/var/log/spark
-      - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-    environment:
-      - SPARK_MASTER_HOST=spark-master
-      - SPARK_MASTER_PORT=7077
-      - SPARK_MASTER_WEBUI_PORT=8080
-    depends_on:
-      namenode:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  spark-worker1:
-    image: cluster-spark-3.5.0:worker
-    build:
-      context: .
-      dockerfile: images/Dockerfile.spark-worker
-      args:
-        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
-    container_name: spark-worker1
-    hostname: spark-worker1
-    ports:
-      - "8081:8081" # Web UI
-      - "4041:4040" # Executor Web UI
-    volumes:
-      - spark-worker1-work:/var/lib/spark/work
-      - spark-worker1-logs:/var/log/spark
-      - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-    environment:
-      - SPARK_MASTER_HOST=spark-master
-      - SPARK_MASTER_PORT=7077
-      - SPARK_WORKER_WEBUI_PORT=8081
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  spark-worker2:
-    image: cluster-spark-3.5.0:worker
-    build:
-      context: .
-      dockerfile: images/Dockerfile.spark-worker
-      args:
-        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
-    container_name: spark-worker2
-    hostname: spark-worker2
-    ports:
-      - "8082:8081" # Web UI (port mapped)
-      - "4042:4040" # Executor Web UI
-    volumes:
-      - spark-worker2-work:/var/lib/spark/work
-      - spark-worker2-logs:/var/log/spark
-      - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-    environment:
-      - SPARK_MASTER_HOST=spark-master
-      - SPARK_MASTER_PORT=7077
-      - SPARK_WORKER_WEBUI_PORT=8081
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # JupyterLab for interactive testing
-  jupyterlab:
-    image: jupyter/datascience-notebook:latest
-    container_name: jupyterlab
-    hostname: jupyterlab
-    ports:
-      - "8888:8888" # Jupyter Web UI
-    volumes:
-      - jupyterlab-notebooks:/notebooks
-      - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-      - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
-      - ./config/spark-env.sh:/opt/spark-env.sh:ro
-    environment:
-      - SPARK_MASTER=spark://spark-master:7077
-      - HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
-      - HADOOP_HOME=/opt/hadoop
-      - JUPYTER_ENABLE_LAB=yes
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8888/api/kernels"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
+  # spark-worker2:
+  #   image: cluster-spark-3.5.0:worker
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.spark-worker
+  #     args:
+  #       SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+  #   container_name: spark-worker2
+  #   hostname: spark-worker2
+  #   ports:
+  #     - "8082:8081" # Web UI (port mapped)
+  #     - "4042:4040" # Executor Web UI
+  #   volumes:
+  #     - spark-worker2-work:/var/lib/spark/work
+  #     - spark-worker2-logs:/var/log/spark
+  #     - ./config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+  #     - ./config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #     - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+  #     - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  #     - ./config/mapred-site.xml:/opt/hadoop/etc/hadoop/mapred-site.xml:ro
+  #   environment:
+  #     - SPARK_MASTER_HOST=spark-master
+  #     - SPARK_MASTER_PORT=7077
+  #     - SPARK_WORKER_WEBUI_PORT=8081
+  #   depends_on:
+  #     spark-master:
+  #       condition: service_healthy
+  #   networks:
+  #     - hadoop-cluster
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8081"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
   # Apache NiFi
-  nifi:
-    image: cluster-nifi-1.25.0:latest
-    build:
-      context: .
-      dockerfile: images/Dockerfile.nifi
-    container_name: nifi
-    hostname: nifi
-    ports:
-      - "8161:8161" # Web UI
-    volumes:
-      - nifi-data:/var/lib/nifi/data
-      - nifi-conf:/var/lib/nifi/conf
-      - nifi-logs:/var/log/nifi
-      - ./config/nifi.properties:/opt/nifi-1.25.0/conf/nifi.properties
-    environment:
-      - NIFI_WEB_HTTP_PORT=8161
-      - NIFI_CLUSTER_IS_NODE=false
-    # depends_on:
-    # namenode:
-    # condition: service_healthy
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8161/nifi"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # nifi:
+  #   image: cluster-nifi-1.25.0:latest
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.nifi
+  #   container_name: nifi
+  #   hostname: nifi
+  #   ports:
+  #     - "8161:8161" # Web UI
+  #   volumes:
+  #     - nifi-data:/var/lib/nifi/data
+  #     - nifi-conf:/var/lib/nifi/conf
+  #     - nifi-logs:/var/log/nifi
+  #     - ./config/nifi.properties:/opt/nifi-1.25.0/conf/nifi.properties
+  #   environment:
+  #     - NIFI_WEB_HTTP_PORT=8161
+  #     - NIFI_CLUSTER_IS_NODE=false
+  #   # depends_on:
+  #   # namenode:
+  #   # condition: service_healthy
+  #   networks:
+  #     - hadoop-cluster
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8161/nifi"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
-  # MySQL Database
-  mysql:
-    image: cluster-mysql-8.0:latest
-    build:
-      context: .
-      dockerfile: images/Dockerfile.mysql
-    container_name: mysql-db
-    hostname: mysql
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - mysql-logs:/var/log/mysql
-      - ./config/my.cnf:/etc/mysql/my.cnf:ro
-    networks:
-      - hadoop-cluster
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "/opt/mysql/bin/mysqladmin",
-          "ping",
-          "-h",
-          "127.0.0.1",
-          "-P",
-          "3306",
-          "-u",
-          "root",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+  # # MySQL Database
+  # mysql:
+  #   image: cluster-mysql-8.0:latest
+  #   build:
+  #     context: .
+  #     dockerfile: images/Dockerfile.mysql
+  #   container_name: mysql-db
+  #   hostname: mysql
+  #   ports:
+  #     - "3306:3306"
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+  #     - mysql-logs:/var/log/mysql
+  #     - ./config/my.cnf:/etc/mysql/my.cnf:ro
+  #   networks:
+  #     - hadoop-cluster
+  #   healthcheck:
+  #     test:
+  #       [
+  #         "CMD",
+  #         "/opt/mysql/bin/mysqladmin",
+  #         "ping",
+  #         "-h",
+  #         "127.0.0.1",
+  #         "-P",
+  #         "3306",
+  #         "-u",
+  #         "root",
+  #       ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 60s
 
 # Volumes (persistent storage)
-volumes:
-  namenode-data:
-    driver: local
-  namenode-logs:
-    driver: local
-  datanode1-data:
-    driver: local
-  datanode1-logs:
-    driver: local
-  datanode2-data:
-    driver: local
-  datanode2-logs:
-    driver: local
-  resourcemanager-data:
-    driver: local
-  resourcemanager-logs:
-    driver: local
-  nodemanager1-data:
-    driver: local
-  nodemanager1-logs:
-    driver: local
-  nodemanager2-data:
-    driver: local
-  nodemanager2-logs:
-    driver: local
-  spark-master-work:
-    driver: local
-  spark-master-logs:
-    driver: local
-  spark-worker1-work:
-    driver: local
-  spark-worker1-logs:
-    driver: local
-  spark-worker2-work:
-    driver: local
-  spark-worker2-logs:
-    driver: local
-  nifi-data:
-    driver: local
-  nifi-conf:
-    driver: local
-  nifi-logs:
-    driver: local
-  mysql-data:
-    driver: local
-  mysql-logs:
-    driver: local
-  jupyterlab-notebooks:
-    driver: local
 
 # Network
 networks:
