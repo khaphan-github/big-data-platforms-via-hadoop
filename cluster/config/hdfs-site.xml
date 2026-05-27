@@ -21,12 +21,6 @@
   </property>
 
   <property>
-    <name>dfs.blocksize</name>
-    <value>134217728</value>
-    <description>The default block size for new files.</description>
-  </property>
-
-  <property>
     <name>dfs.namenode.http-address</name>
     <value>0.0.0.0:9870</value>
     <description>The address and the base port where the dfs namenode web ui will listen on.</description>
@@ -37,4 +31,9 @@
     <value>0.0.0.0</value>
   </property>
 
+  <property>
+    <name>dfs.namenode.datanode.registration.ip-hostname-check</name>
+    <value>false</value>
+    <description>Allow DataNodes advertising localhost for host-side WebHDFS access.</description>
+  </property>
 </configuration>

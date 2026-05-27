@@ -16,7 +16,6 @@ services:
       args:
         HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
     container_name: hadoop-namenode
-    hostname: namenode
     ports:
       - "9870:9870"
     volumes:
@@ -39,10 +38,12 @@ services:
       args:
         HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
     container_name: hadoop-datanode1
-    hostname: datanode1
+    ports:
+      - "9864:9864"
     volumes:
+      - datanode1-data:/var/lib/hadoop-hdfs/cache/dfs/data
       - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/hdfs-site-datanode1.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
     depends_on:
       namenode:
         condition: service_healthy
@@ -57,10 +58,12 @@ services:
       args:
         HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
     container_name: hadoop-datanode2
-    hostname: datanode2
+    ports:
+      - "9865:9865"
     volumes:
+      - datanode2-data:/var/lib/hadoop-hdfs/cache/dfs/data
       - ./config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./config/hdfs-site-datanode2.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
     depends_on:
       namenode:
         condition: service_healthy
@@ -249,6 +252,9 @@ services:
   #     start_period: 60s
 
 # Volumes (persistent storage)
+volumes:
+  datanode1-data:
+  datanode2-data:
 
 # Network
 networks:
