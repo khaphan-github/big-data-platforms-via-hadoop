@@ -8,23 +8,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-11-jdk-headless \
-    openssh-server \
-    openssh-client \
+    ca-certificates \
     curl \
-    wget \
-    vim \
-    net-tools \
-    iputils-ping \
-    dnsutils \
-    sudo \
-    less \
     && rm -rf /var/lib/apt/lists/*
 
 COPY download/hadoop-3.3.6.tar.gz /tmp/hadoop-3.3.6.tar.gz
 COPY config/core-site.xml /tmp/core-site.xml
 COPY config/hdfs-site.xml /tmp/hdfs-site.xml
-COPY config/mapred-site.xml /tmp/mapred-site.xml
-COPY config/yarn-site.xml /tmp/yarn-site.xml
 
 RUN groupadd -r hadoop && useradd -r -g hadoop hadoop
 
@@ -40,8 +30,6 @@ RUN test -f /tmp/hadoop-3.3.6.tar.gz && \
 RUN mkdir -p /opt/hadoop/etc/hadoop && \
     cp /tmp/core-site.xml /opt/hadoop/etc/hadoop/ && \
     cp /tmp/hdfs-site.xml /opt/hadoop/etc/hadoop/ && \
-    cp /tmp/mapred-site.xml /opt/hadoop/etc/hadoop/ && \
-    cp /tmp/yarn-site.xml /opt/hadoop/etc/hadoop/ && \
     chown -R hadoop:hadoop /opt/hadoop/etc/hadoop && \
     rm -f /tmp/*.xml
 
@@ -55,23 +43,12 @@ RUN mkdir -p /var/lib/hadoop-hdfs/cache \
     /var/log/hadoop* \
     /opt/hadoop-logs
 
-RUN mkdir -p /var/run/sshd && \
-    mkdir -p /home/hadoop/.ssh && \
-    chown hadoop:hadoop /home/hadoop/.ssh && \
-    chmod 700 /home/hadoop/.ssh
-
-RUN su - hadoop -c "ssh-keygen -t rsa -P '' -f ~/.ssh/id_rsa && \
-    cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys && \
-    chmod 600 ~/.ssh/authorized_keys"
-
 # Expose common ports
-# NameNode Web UI: 50070
+# NameNode Web UI: 9870
 # NameNode RPC: 9000
-# ResourceManager Web UI: 8088
-# NodeManager Web UI: 8042
-# DataNode Web UI: 50075
-# Secondary NameNode: 50090
-EXPOSE 50070 9000 8088 8042 50075 50090 22
+# DataNode Web UI: 9864
+# Secondary NameNode Web UI: 9868
+EXPOSE 9870 9000 9864 9868
 
 WORKDIR /opt/hadoop
 

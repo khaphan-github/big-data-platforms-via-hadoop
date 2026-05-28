@@ -6,14 +6,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PATH=$PATH:/opt/mysql/bin
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
-    wget \
-    vim \
-    net-tools \
-    iputils-ping \
-    dnsutils \
-    sudo \
-    less \
     libc6 \
     libncurses6 \
     libnuma1 \

@@ -1,0 +1,301 @@
+services:
+  hadoop-base:
+    image: cluster-hadoop-3.3.6:base
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.base
+    profiles:
+      - build-only
+
+  # HDFS Cluster
+  namenode:
+    image: cluster-hadoop-3.3.6:namenode
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.namenode
+      args:
+        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
+    container_name: hadoop-namenode
+    ports:
+      - "9870:9870"
+    volumes:
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test: ["CMD", "hdfs", "dfsadmin", "-report"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  datanode1:
+    image: cluster-hadoop-3.3.6:datanode
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.datanode
+      args:
+        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
+    container_name: hadoop-datanode1
+    ports:
+      - "9864:9864"
+    volumes:
+      - datanode1-data:/var/lib/hadoop-hdfs/cache/dfs/data
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site-datanode1.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks:
+      - hadoop-cluster
+
+  datanode2:
+    image: cluster-hadoop-3.3.6:datanode
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.datanode
+      args:
+        HADOOP_BASE_IMAGE: cluster-hadoop-3.3.6:base
+    container_name: hadoop-datanode2
+    ports:
+      - "9865:9865"
+    volumes:
+      - datanode2-data:/var/lib/hadoop-hdfs/cache/dfs/data
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site-datanode2.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks:
+      - hadoop-cluster
+
+  # Spark Cluster (minimal)
+  spark-base:
+    image: cluster-spark-3.5.0:base
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.spark-base
+    profiles:
+      - build-only
+
+  spark-master:
+    image: cluster-spark-3.5.0:master
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.spark-master
+      args:
+        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+    container_name: spark-master
+    hostname: spark-master
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+      - "4040:4040"
+    volumes:
+      - spark-master-work:/var/lib/spark/work
+      - spark-master-logs:/var/log/spark
+      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      - SPARK_PUBLIC_DNS=localhost
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  spark-worker1:
+    image: cluster-spark-3.5.0:worker
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.spark-worker
+      args:
+        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+    container_name: spark-worker1
+    ports:
+      - "8081:8081"
+      - "4041:4040"
+    environment:
+      - SPARK_WORKER_WEBUI_PORT=8081
+      - SPARK_PUBLIC_DNS=localhost
+    volumes:
+      - spark-worker1-work:/var/lib/spark/work
+      - spark-worker1-logs:/var/log/spark
+      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - hadoop-cluster
+
+  spark-worker2:
+    image: cluster-spark-3.5.0:worker
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.spark-worker
+      args:
+        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+    container_name: spark-worker2
+    ports:
+      - "8082:8082"
+      - "4042:4040"
+    environment:
+      - SPARK_WORKER_WEBUI_PORT=8082
+      - SPARK_PUBLIC_DNS=localhost
+    volumes:
+      - spark-worker2-work:/var/lib/spark/work
+      - spark-worker2-logs:/var/log/spark
+      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    networks:
+      - hadoop-cluster
+  # Apache NiFi
+  nifi:
+    image: cluster-nifi-1.25.0:latest
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.nifi
+    container_name: nifi
+    hostname: nifi
+    ports:
+      - "8161:8161" # Web UI
+    volumes:
+      - nifi-data:/var/lib/nifi/data
+      - nifi-conf:/var/lib/nifi/conf
+      - nifi-logs:/var/log/nifi
+      - ./cluster/config/nifi.properties:/opt/nifi-1.25.0/conf/nifi.properties
+      - ./cluster/download/mysql-connector-j-8.4.0.jar:/opt/nifi-1.25.0/lib/mysql-connector-j-8.4.0.jar:ro
+    environment:
+      - NIFI_WEB_HTTP_PORT=8161
+      - NIFI_CLUSTER_IS_NODE=false
+    # depends_on:
+    # namenode:
+    # condition: service_healthy
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8161/nifi"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # # MySQL Database
+  mysql:
+    image: cluster-mysql-8.0:latest
+    build:
+      context: ./cluster
+      dockerfile: images/Dockerfile.mysql
+    container_name: mysql-db
+    hostname: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - mysql-logs:/var/log/mysql
+      - ./cluster/config/my.cnf:/etc/mysql/my.cnf:ro
+    networks:
+      - hadoop-cluster
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/mysql/bin/mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-P",
+          "3306",
+          "-u",
+          "root",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ingest-app:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile
+    container_name: rss_app
+    environment:
+      - MYSQL_HOST=ingest-mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-rss_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - DEBUG=${DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - INGEST_INTERVAL_MINUTES=${INGEST_INTERVAL_MINUTES:-1}
+      - MAX_RETRIES=${MAX_RETRIES:-4}
+      - REQUEST_TIMEOUT_SECONDS=${REQUEST_TIMEOUT_SECONDS:-10}
+    ports:
+      - "8000:8000"
+    depends_on:
+      ingest-mysql:
+        condition: service_healthy
+    volumes:
+      - ./ingest/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - hadoop-cluster
+
+  ingest-mysql:
+    image: mysql:8.0
+    container_name: rss_mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-rss_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}
+    ports:
+      - "3308:3306"
+    volumes:
+      - ingest-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - hadoop-cluster
+
+# Volumes (persistent storage)
+volumes:
+  datanode1-data:
+  datanode2-data:
+  spark-master-work:
+  spark-master-logs:
+  spark-worker1-work:
+  spark-worker1-logs:
+  spark-worker2-work:
+  spark-worker2-logs:
+  nifi-data:
+  nifi-conf:
+  nifi-logs:
+  mysql-data:
+  mysql-logs:
+  ingest-mysql-data:
+
+# Network
+networks:
+  hadoop-cluster:
+    driver: bridge

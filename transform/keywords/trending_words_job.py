@@ -40,7 +40,6 @@ class TrendingWordsSparkJob:
         """Create and configure Spark session"""
         return SparkSession.builder \
             .appName("TrendingWordsExtraction") \
-            .master("yarn") \
             .config("spark.executor.memory", "2g") \
             .config("spark.executor.cores", "2") \
             .config("spark.driver.memory", "2g") \
@@ -60,7 +59,7 @@ class TrendingWordsSparkJob:
             for folder, category_name in self.CATEGORIES.items():
                 category_path = f"{self.hdfs_base}/{folder}"
                 try:
-                    df_cat = self.spark.read.option("inferSchema", "true").load(category_path)
+                    df_cat = self.spark.read.option("inferSchema", "true").json(category_path)
                     df_cat = df_cat.withColumn("chu_de", lit(category_name))
                     dfs.append(df_cat)
                 except Exception as e:
@@ -84,7 +83,15 @@ class TrendingWordsSparkJob:
             ).filter(col("ngay").isNotNull())
             
             # Step 3-6: Clean, tokenize, explode, and aggregate
-            df = df.withColumn("full_text", regexp_replace(col("title") + " " + col("content"), "[^a-zA-Z0-9_àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\\s]", " "))
+            # ??? stupid
+            df = df.withColumn(
+                "full_text",
+                regexp_replace(
+                    concat_ws(" ", col("title"), col("content")),
+                    "[^a-zA-Z0-9_àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\\s]",
+                    " ",
+                ),
+            )
             
             extract_keywords_func = self._extract_keywords_udf()
             df = df.withColumn("keywords", extract_keywords_func(col("full_text")))
@@ -111,8 +118,8 @@ class TrendingWordsSparkJob:
 def main():
     """Main entry point"""
     # Default paths (configurable via arguments)
-    hdfs_base = os.getenv("HDFS_BASE_PATH", "hdfs://namenode:9000/raw_zone")
-    hdfs_output = os.getenv("HDFS_OUTPUT_PATH", "hdfs://namenode:9000/work_zone/table_trending_words")
+    hdfs_base = os.getenv("HDFS_BASE_PATH", "hdfs://localhost:9870/raw_zone")
+    hdfs_output = os.getenv("HDFS_OUTPUT_PATH", "hdfs://localhost:9870/work_zone/table_trending_words")
     
     # Allow override via command line arguments
     if len(sys.argv) > 1:

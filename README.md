@@ -13,14 +13,12 @@ Analyze trending keywords from Vietnamese news using Hadoop, Spark, and FastAPI.
 2. **Start cluster** (wait ~3 minutes for services to be ready)
 
    ```bash
-   cd cluster && docker-compose up -d
+   docker-compose up -d
    ```
 
-3. **Start ingest**
+3. **Ingest service**
 
-   ```bash
-   cd ingest && docker-compose up -d
-   ```
+   Ingest đã được gộp trong `docker-compose.yml` tổng, chạy cùng lúc với bước 2.
 
 4. **Run Spark job**
 
@@ -44,7 +42,8 @@ Analyze trending keywords from Vietnamese news using Hadoop, Spark, and FastAPI.
 | Ingest API           | http://localhost:8000      |
 | Ingest Docs          | http://localhost:8000/docs |
 | Serving API          | http://localhost:5000      |
-| MySQL                | localhost:3306             |
+| Cluster MySQL        | localhost:3306             |
+| Ingest MySQL         | localhost:3308             |
 
 ## 📂 Folders
 

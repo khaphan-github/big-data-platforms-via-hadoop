@@ -35,4 +35,12 @@ else
     echo "[NiFi] Already exists, skipping download"
 fi
 
+# Download MySQL Connector/J for NiFi JDBC processors (only if not exists)
+if [ ! -f "mysql-connector-j-8.4.0.jar" ]; then
+    echo "[MySQL Connector/J] Downloading mysql-connector-j-8.4.0..."
+    curl -fSL "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar" -o "mysql-connector-j-8.4.0.jar"
+    echo "[MySQL Connector/J] Downloaded successfully"
+else
+    echo "[MySQL Connector/J] Already exists, skipping download"
+fi
 
