@@ -1,0 +1,14 @@
+target/
+.bsp/
+.metals/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+*.iml
+dist/
+build/
+*.log
+.venv

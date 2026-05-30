@@ -1,34 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SPARK_CONTAINER="${SPARK_CONTAINER:-spark-master}"
-HDFS_BASE_URI="${HDFS_BASE_URI:-hdfs://namenode:9000/raw_zone}"
-HDFS_OUTPUT_URI="${HDFS_OUTPUT_URI:-hdfs://namenode:9000/work_zone/table_trending_words}"
-REMOTE_WORKDIR="${REMOTE_WORKDIR:-/tmp/keywords_e2e}"
-REMOTE_PROJECT_DIR="${REMOTE_WORKDIR}/transform"
-REMOTE_PYFILES="${REMOTE_WORKDIR}/transform_pyfiles.zip"
+docker exec -u 0 spark-master rm -rf /tmp/keywords_wheel /tmp/keywords_extract 2>/dev/null || true
+docker exec -u 0 spark-master mkdir -p /tmp/keywords_wheel /tmp/keywords_extract
 
-if ! docker ps --format '{{.Names}}' | grep -qx "$SPARK_CONTAINER"; then
-  echo "[ERROR] Container '$SPARK_CONTAINER' is not running."
-  echo "Start Spark first, e.g. docker compose up -d spark-master spark-worker1 spark-worker2"
-  exit 1
-fi
+docker cp ./dist/bigdt_transform_keywords-0.1.0-py3-none-any.whl spark-master:/tmp/keywords_wheel/
+docker exec -u 0 spark-master chown -R spark:spark /tmp/keywords_wheel
 
-echo "[INFO] Syncing transform code into ${SPARK_CONTAINER}:${REMOTE_WORKDIR}"
-docker exec -u 0 "$SPARK_CONTAINER" rm -rf "$REMOTE_WORKDIR"
-docker exec -u 0 "$SPARK_CONTAINER" mkdir -p "$REMOTE_PROJECT_DIR"
-docker cp transform/. "$SPARK_CONTAINER":"$REMOTE_PROJECT_DIR/"
-docker exec -u 0 "$SPARK_CONTAINER" chown -R spark:spark "$REMOTE_WORKDIR"
-docker exec "$SPARK_CONTAINER" python3 -m zipfile -c "$REMOTE_PYFILES" "$REMOTE_PROJECT_DIR"
+# Extract wheel to get entry point
+docker exec spark-master python -m zipfile -e /tmp/keywords_wheel/bigdt_transform_keywords-0.1.0-py3-none-any.whl /tmp/keywords_extract/
 
-echo "[INFO] Running Spark job"
-docker exec -e HDFS_BASE_PATH="$HDFS_BASE_URI" -e HDFS_OUTPUT_PATH="$HDFS_OUTPUT_URI" -e PYTHONPATH="$REMOTE_WORKDIR" "$SPARK_CONTAINER" \
+docker exec \
+  -e HDFS_BASE_PATH="hdfs://namenode:9000/raw_zone" \
+  -e HDFS_OUTPUT_PATH="hdfs://namenode:9000/work_zone/table_trending_words" \
+  spark-master \
   spark-submit \
     --master spark://spark-master:7077 \
     --deploy-mode client \
-    --py-files "$REMOTE_PYFILES" \
-    "$REMOTE_PROJECT_DIR/keywords/trending_words_job.py" \
-    "$HDFS_BASE_URI" \
-    "$HDFS_OUTPUT_URI"
+    --py-files /tmp/keywords_wheel/bigdt_transform_keywords-0.1.0-py3-none-any.whl \
+    /tmp/keywords_extract/bigdt_transform_keywords/trending_words_job.py \
+    hdfs://namenode:9000/raw_zone \
+    hdfs://namenode:9000/work_zone/table_trending_words
 
-echo "[DONE] Job completed"
+docker exec -u 0 spark-master rm -rf /tmp/keywords_wheel /tmp/keywords_extract

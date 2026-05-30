@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bigdt-transform-keywords"
+version = "0.1.0"
+description = "Trending keywords extraction Spark job with Vietnamese NLP"
+authors = [{name = "BigDT Team"}]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "pyspark==3.5.0",
+  "pyvi>=0.1",
+  "numpy>=1.21.0",
+  "pandas>=1.3.0",
+  "schedule>=1.1.0",
+  "requests>=2.26.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+namespaces = false
+
+[tool.setuptools.package-data]
+keywords = ["stopwords_vi.txt"]
+

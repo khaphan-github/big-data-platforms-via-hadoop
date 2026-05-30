@@ -1,0 +1,30 @@
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+*.whl
+*.pyc
+__pycache__/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
