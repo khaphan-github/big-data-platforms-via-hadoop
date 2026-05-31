@@ -1,6 +1,0 @@
-pyspark==3.5.0
-pyvi
-numpy
-pandas
-schedule
-requests
