@@ -11,8 +11,6 @@ sudo apt-get install sbt
 sbt run
 sbt clean compile
 sbt assembly
-# Firewall: allow executors (Docker bridge subnet) to reach driver port 7078
-# sudo ufw allow from 172.0.0.0/8 to any port 7078
 
 ```
 
@@ -21,4 +19,10 @@ sbt assembly
 ```bash
 ./script/generate_mock_data.sh ./mock_data 10
 ./script/upload_to_hdfs.sh ./mock_data
+```
+
+## Run:
+
+```bash
+./script/submit.sh
 ```
