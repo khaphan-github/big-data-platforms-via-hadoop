@@ -18,6 +18,7 @@ services:
     container_name: hadoop-namenode
     ports:
       - "9870:9870"
+      - "9000:9000"
     volumes:
       - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
       - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro

@@ -96,8 +96,10 @@ sbt clean assembly
 ```bash
 spark-submit \
   --class bigdt.transform.keywords.TrendingWordsJob \
-  --executor-memory 6g \
-  --executor-cores 5 \
+  --master spark://localhost:8080 \
+  --deploy-mode client \
+  --executor-memory 3g \
+  --executor-cores 2 \
   target/scala-2.12/trending-words-job-assembly.jar \
   hdfs://localhost:9870/raw_zone \
   hdfs://localhost:9870/work_zone/table_trending_words

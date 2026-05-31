@@ -17,6 +17,9 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.2.18" % "test"
 )
 
+// VnCoreNLP - Vietnamese NLP library (local JAR)
+unmanagedJars in Compile += file("libs/VnCoreNLP-1.2.jar")
+
 // Assembly settings for fat JAR
 assembly / assemblyJarName := "trending-words-job-assembly.jar"
 assembly / test := {}
