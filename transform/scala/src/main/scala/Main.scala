@@ -1,213 +1,101 @@
-import vn.hus.nlp.tokenizer.segmenter.Segmenter
-import scala.collection.mutable
-import scala.io.Source
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions._
+import java.util.Properties
+
+import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.types._
+import vn.hus.nlp.tokenizer.VietTokenizer
 
 object Main {
-  private val DEFAULT_HDFS_BASE = "hdfs://localhost:9000/raw_zone"
-  private val DEFAULT_HDFS_OUTPUT = "hdfs://localhost:9000/work_zone"
-  private val REGEX_TEXT = "[^a-zA-Z0-9àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ\\s]"
+  private val DEFAULT_HDFS_BASE  = "hdfs://namenode:9000/raw_zone"
+  private val DEFAULT_MODELS_DIR = "/tmp/vnlp-models"
+  private val DEFAULT_OUTPUT     = "hdfs://namenode:9000/work_zone/table_trending_words_csv"
 
-  // Load stopwords from resources file
-  def loadStopwords(): Set[String] = {
-    try {
-      val resourceStream = getClass.getResourceAsStream("/stopwords_vi.txt")
-      if (resourceStream != null) {
-        val stopwords = scala.io.Source.fromInputStream(resourceStream, "UTF-8")
-          .getLines()
-          .map(_.trim.toLowerCase)
-          .filter(_.nonEmpty)
-          .toSet
-        resourceStream.close()
-        println(s"Loaded ${stopwords.size} stopwords from resources")
-        stopwords
-      } else {
-        println("Stopwords file not found in resources, using empty set")
-        Set()
-      }
-    } catch {
-      case e: Exception =>
-        println(s"Error loading stopwords: ${e.getMessage}")
-        Set()
-    }
+  def buildTokenizer(modelsDir: String): VietTokenizer = {
+    val props = new Properties()
+    props.setProperty("sentDetectionModel", s"$modelsDir/sentDetection/VietnameseSD.bin.gz")
+    props.setProperty("lexiconDFA",         s"$modelsDir/tokenization/automata/dfaLexicon.xml")
+    props.setProperty("externalLexicon",    s"$modelsDir/tokenization/automata/externalLexicon.xml")
+    props.setProperty("normalizationRules", s"$modelsDir/tokenization/normalization/rules.txt")
+    props.setProperty("lexers",             s"$modelsDir/tokenization/lexers/lexers.xml")
+    props.setProperty("unigramModel",       s"$modelsDir/tokenization/bigram/unigram.xml")
+    props.setProperty("bigramModel",        s"$modelsDir/tokenization/bigram/bigram.xml")
+    props.setProperty("namedEntityPrefix",  s"$modelsDir/tokenization/prefix/namedEntityPrefix.xml")
+    new VietTokenizer(props)
   }
 
-  def extractKeywords(text: String, stopwords: Set[String], minFreq: Int = 2): Seq[(String, Int)] = {
-    try {
-      val segmenter = new Segmenter()
-      val segmentations = segmenter.segment(text)
-      
-      // Get words from first segmentation
-      val words = if (segmentations != null && segmentations.size() > 0) {
-        segmentations.iterator.next().toSeq
-      } else {
-        Seq()
-      }
-      
-      // Filter stopwords, remove punctuation and count frequency
-      val keywordFreq = mutable.Map[String, Int]()
-      words.foreach { word =>
-        // Remove punctuation and normalize
-        val cleanWord = word
-          .replaceAll("[.,:;!?()\\[\\]\"]", "")
-          .toLowerCase()
-          .trim()
-        
-        if (!stopwords.contains(cleanWord) && cleanWord.length > 1) {
-          keywordFreq(cleanWord) = keywordFreq.getOrElse(cleanWord, 0) + 1
-        }
-      }
-      
-      // Sort by frequency (descending)
-      keywordFreq
-        .filter { case (_, freq) => freq >= minFreq }
-        .toSeq
-        .sortBy { case (_, freq) => -freq }
-    } catch {
-      case e: Exception =>
-        println(s"Error: ${e.getMessage}")
-        e.printStackTrace()
-        Seq()
-    }
-  }
-
-  /**
-   * Spark IO
-   */
-
-  def sparkContext(): SparkSession = {
-    SparkSession.builder()
-      .appName("keyword_extractor:v1.2.0")
-      .config("spark.executor.memory", "3g")
-      .config("spark.executor.cores", "4")
-      .config("spark.driver.memory", "2g")
-      .config("spark.sql.adaptive.enabled", "true")
-      .getOrCreate()
-  }
-
-  def loadDataFromHdfs(spark: SparkSession, hdfsBase: String): org.apache.spark.sql.DataFrame = {
-    val categories = Map(
-      "giai_tri" -> "Entertainment",
-      "cong_nghe" -> "Technology",
-      "suc_khoe" -> "Health"
-    )
-
-    val dfs = categories.flatMap { case (folder, catName) =>
-      try {
-        // Read from local filesystem instead of HDFS to avoid RPC issues
-        val localPath = s"${hdfsBase.stripSuffix("/")}/$folder/articles.json"
-        println(s"Reading from: $localPath")
-        val df = spark.read
-          .schema(
-            "id STRING, title STRING, content STRING, source STRING, category STRING, publish_date STRING, url STRING, author STRING, created_at STRING"
-          )
-          .option("mode", "PERMISSIVE")
-          .json(localPath)
-        val count = df.count()
-        println(s"Loaded $folder: $count records")
-        Some(df)
-      } catch {
-        case e: Exception =>
-          e.printStackTrace()
-          println(s"[WARN] Failed to load $folder: ${e.getClass.getName} - ${e.getMessage}")
-          None
-      }
-    }.toSeq
-
-    if (dfs.isEmpty) throw new Exception("No data found in any category!")
-    
-    val df = dfs.reduce(_ unionByName _)
-    println(s"Total loaded: ${df.count()} records")
-    df
-  }
-
-  def processAndCleanData(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.select(
-      date_format(col("publish_date"), "yyyyMMdd").alias("ngay"),
-      col("source").alias("nguon"),
-      col("category").alias("chu_de"),
-      col("title"),
-      col("content")
-    )
-    .filter(col("ngay").isNotNull)
-    .withColumn(
-      "full_text",
-      regexp_replace(
-        concat_ws(" ", col("title"), col("content")),
-        REGEX_TEXT,
-        " "
-      )
-    )
-  }
-
-  def extractKeywordsToArray(df: org.apache.spark.sql.DataFrame, stopwords: Set[String]): org.apache.spark.sql.DataFrame = {
-    val extractKeywordsUDF = udf((text: String) => {
-      extractKeywords(text, stopwords, minFreq = 2)
-        .map { case (word, freq) => word }
-    })
-    df.withColumn("keywords", extractKeywordsUDF(col("full_text")))
-  }
-
-  def explodeAndFilterKeywords(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.select(
-      col("ngay"),
-      col("nguon"),
-      col("chu_de"),
-      explode(col("keywords")).alias("tu_khoa")
-    )
-    .filter(col("tu_khoa").isNotNull && length(col("tu_khoa")) >= 2)
-  }
-
-  def aggregateKeywords(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.groupBy("ngay", "nguon", "chu_de", "tu_khoa")
-      .count()
-      .withColumnRenamed("count", "so_lan_xuat_hien")
-      .orderBy(desc("so_lan_xuat_hien"))
-  }
-
-  def writeResults(resultDF: org.apache.spark.sql.DataFrame, hdfsOutput: String): Unit = {
-    println(s"Writing results to $hdfsOutput")
-    resultDF.write.mode("overwrite").parquet(hdfsOutput)
-    resultDF.coalesce(1).write.mode("overwrite").option("header", "true").csv(s"${hdfsOutput}_csv")
-    println(s"Completed: ${resultDF.count()} trending keywords extracted")
-    resultDF.limit(10).show(truncate = false)
-  }
-
-  def runJob(hdfsBase: String, hdfsOutput: String): Unit = {
-    val spark = sparkContext()
-    val stopwords = loadStopwords()
-
-    try {
-      // 1. READ HDFS
-      var df = loadDataFromHdfs(spark, hdfsBase)
-
-      // 2. MAP REDUCE PIPELINE
-      df = processAndCleanData(df)
-      df = extractKeywordsToArray(df, stopwords)
-      df = explodeAndFilterKeywords(df)
-      val resultDF = aggregateKeywords(df)
-
-      // 3. WRITE OUTPUT
-      writeResults(resultDF, hdfsOutput)
-
-    } catch {
-      case e: Exception =>
-        println(s"[ERROR] ${e.getMessage}")
-        e.printStackTrace()
-        throw e
-    } finally {
-      spark.stop()
-    }
-  }
+  private def str(row: Row, idx: Int): String =
+    if (row.isNullAt(idx)) "" else row.getString(idx)
 
   def main(args: Array[String]): Unit = {
     val hdfsBase   = if (args.length > 0) args(0) else DEFAULT_HDFS_BASE
-    val hdfsOutput = if (args.length > 1) args(1) else DEFAULT_HDFS_OUTPUT
-    
-    println(s"HDFS Base: $hdfsBase")
-    println(s"HDFS Output: $hdfsOutput")
-    
-    runJob(hdfsBase, hdfsOutput)
+    val modelsDir  = if (args.length > 1) args(1) else DEFAULT_MODELS_DIR
+    val outputPath = if (args.length > 2) args(2) else DEFAULT_OUTPUT
+
+    val spark = SparkSession.builder()
+      .appName("trending-words")
+      .config("spark.driver.bindAddress", "0.0.0.0")
+      .getOrCreate()
+
+    println(s"Initializing VnTokenizer from: $modelsDir")
+    val tokenizer = buildTokenizer(modelsDir)
+    println("VnTokenizer ready.")
+
+    val schema = StructType(Seq(
+      StructField("ngay",             StringType, nullable = true),
+      StructField("nguon",            StringType, nullable = true),
+      StructField("chu_de",           StringType, nullable = true),
+      StructField("tu_khoa",          StringType, nullable = false),
+      StructField("so_lan_xuat_hien", LongType,   nullable = false)
+    ))
+
+    // Accumulate (ngay, nguon, chu_de, tu_khoa) -> count across all categories
+    val tokenCounts = collection.mutable.HashMap.empty[(String, String, String, String), Long]
+
+    val categories = Seq("giai_tri", "cong_nghe", "suc_khoe")
+    categories.foreach { folder =>
+      val path = s"$hdfsBase/$folder/articles.json"
+      try {
+        val rows = spark.read
+          .option("mode", "PERMISSIVE")
+          .option("multiline", "true")
+          .json(path)
+          .select("publish_date", "source", "category", "content")
+          .collect()
+
+        rows.foreach { row =>
+          val ngay    = str(row, 0)
+          val nguon   = str(row, 1)
+          val chuDe   = str(row, 2)
+          val content = str(row, 3)
+
+          if (content.nonEmpty) {
+            tokenizer.segment(content)
+              .split("\\s+")
+              .filter(_.nonEmpty)
+              .foreach { token =>
+                val cleanToken = token.replace("_", " ").trim
+                val key = (ngay, nguon, chuDe, cleanToken)
+                tokenCounts(key) = tokenCounts.getOrElse(key, 0L) + 1L
+              }
+          }
+        }
+        println(s"[$folder] processed ${rows.length} articles")
+      } catch {
+        case e: Exception =>
+          println(s"[WARN] Failed to process $folder: ${e.getMessage}")
+      }
+    }
+
+    val resultRows = tokenCounts.map { case ((ngay, nguon, chuDe, tuKhoa), count) =>
+      Row(ngay, nguon, chuDe, tuKhoa, count)
+    }.toSeq
+
+    val resultDF = spark.createDataFrame(
+      spark.sparkContext.parallelize(resultRows),
+      schema
+    )
+    resultDF.coalesce(1).write.mode("overwrite").option("header", "true").csv(outputPath)
+    println(s"Written ${resultRows.size} rows to: $outputPath")
+
+    spark.stop()
   }
 }

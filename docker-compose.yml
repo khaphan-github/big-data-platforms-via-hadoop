@@ -128,6 +128,13 @@ services:
     environment:
       - SPARK_WORKER_WEBUI_PORT=8081
       - SPARK_PUBLIC_DNS=localhost
+      - SPARK_WORKER_MEMORY=8g
+      - SPARK_WORKER_CORES=8
+    deploy:
+      resources:
+        limits:
+          memory: 8g
+          cpus: "8"
     volumes:
       - spark-worker1-work:/var/lib/spark/work
       - spark-worker1-logs:/var/log/spark
@@ -141,32 +148,39 @@ services:
     networks:
       - hadoop-cluster
 
-  spark-worker2:
-    image: cluster-spark-3.5.0:worker
-    build:
-      context: ./cluster
-      dockerfile: images/Dockerfile.spark-worker
-      args:
-        SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
-    container_name: spark-worker2
-    ports:
-      - "8082:8082"
-      - "4042:4040"
-    environment:
-      - SPARK_WORKER_WEBUI_PORT=8082
-      - SPARK_PUBLIC_DNS=localhost
-    volumes:
-      - spark-worker2-work:/var/lib/spark/work
-      - spark-worker2-logs:/var/log/spark
-      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
-    depends_on:
-      spark-master:
-        condition: service_healthy
-    networks:
-      - hadoop-cluster
+  # spark-worker2:
+  #   image: cluster-spark-3.5.0:worker
+  #   build:
+  #     context: ./cluster
+  #     dockerfile: images/Dockerfile.spark-worker
+  #     args:
+  #       SPARK_BASE_IMAGE: cluster-spark-3.5.0:base
+  #   container_name: spark-worker2
+  #   ports:
+  #     - "8082:8082"
+  #     - "4042:4040"
+  #   environment:
+  #     - SPARK_WORKER_WEBUI_PORT=8082
+  #     - SPARK_PUBLIC_DNS=localhost
+  #     - SPARK_WORKER_MEMORY=4g
+  #     - SPARK_WORKER_CORES=4
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 4g
+  #         cpus: "4"
+  #   volumes:
+  #     - spark-worker2-work:/var/lib/spark/work
+  #     - spark-worker2-logs:/var/log/spark
+  #     - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
+  #     - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
+  #     - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
+  #     - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+  #   depends_on:
+  #     spark-master:
+  #       condition: service_healthy
+  #   networks:
+  #     - hadoop-cluster
   # Apache NiFi
   nifi:
     image: cluster-nifi-1.25.0:latest

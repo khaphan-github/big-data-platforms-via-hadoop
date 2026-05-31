@@ -41,7 +41,7 @@ RUN mkdir -p /var/lib/spark/work \
     /opt/spark-logs
 
 # Expose common Spark ports
-EXPOSE 7077 8080 8081 4040
+EXPOSE 7077 8080 8081 4040 7078
 
 WORKDIR /opt/spark
 

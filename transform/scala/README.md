@@ -11,7 +11,8 @@ sudo apt-get install sbt
 sbt run
 sbt clean compile
 sbt assembly
-spark-submit --master spark://localhost:7077 target/scala-assembly.jar
+# Firewall: allow executors (Docker bridge subnet) to reach driver port 7078
+# sudo ufw allow from 172.0.0.0/8 to any port 7078
 
 ```
 

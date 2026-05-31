@@ -31,7 +31,7 @@ USER spark
 # Expose Spark Worker ports
 # 8081: Worker Web UI
 # 4040: Executor Web UI
-EXPOSE 8081 4040 22
+EXPOSE 8081 4040 22 7078
 
 # Healthcheck: verify Spark Worker is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

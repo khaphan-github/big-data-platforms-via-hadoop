@@ -32,7 +32,8 @@ USER spark
 # 7077: Master RPC
 # 8080: Master Web UI
 # 4040: Driver Web UI
-EXPOSE 7077 8080 4040 22
+# 7078: Driver port for client mode
+EXPOSE 7077 8080 4040 22 7078
 
 # Healthcheck: verify Spark Master is responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
