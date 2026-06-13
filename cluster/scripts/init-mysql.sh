@@ -1,6 +1,15 @@
 #!/bin/bash
 set -e
 
+if [ ! -d /var/lib/mysql/mysql ]; then
+    echo "[MySQL] Initializing database directory..."
+    /opt/mysql/bin/mysqld \
+        --initialize-insecure \
+        --user=mysql \
+        --datadir=/var/lib/mysql \
+        --default-storage-engine=InnoDB
+fi
+
 echo "[MySQL] Starting MySQL Server..."
 /opt/mysql/bin/mysqld \
     --user=mysql \
