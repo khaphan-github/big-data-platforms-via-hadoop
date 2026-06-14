@@ -48,10 +48,11 @@ def init_db():
 
             # Add feed sources
             for feed_data in FEED_SOURCES:
-                category_slug = feed_data.pop("category_slug")
+                feed_payload = feed_data.copy()
+                category_slug = feed_payload.pop("category_slug")
                 category = db.query(Category).filter(Category.slug == category_slug).first()
                 if category:
-                    feed_source = FeedSource(**feed_data, category_id=category.id)
+                    feed_source = FeedSource(**feed_payload, category_id=category.id)
                     db.add(feed_source)
             db.commit()
             logger.info("Feed sources seeded")

@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database initialized")
     except Exception as e:
         logger.error(f"Error initializing database: {e}")
+        raise
     
     # Seed data if needed
     try:
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database seeded")
     except Exception as e:
         logger.error(f"Error seeding database: {e}")
+        raise
     
     # Auto-start the ingestion scheduler
     try:

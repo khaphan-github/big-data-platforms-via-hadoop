@@ -11,6 +11,8 @@ from services.rss_fetcher import RSSFetcher
 from services.content_crawler import ContentCrawler
 from services.deduplicator import Deduplicator
 from services.data_processor import DataProcessor
+from services.hdfs_writer import HDFSWriter
+from services.hive_manager import HiveManager
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -22,6 +24,8 @@ class IngestionScheduler:
     def __init__(self):
         self.fetcher = None
         self.crawler = None
+        self.hdfs_writer = HDFSWriter()
+        self.hive_manager = HiveManager()
         self.is_running = False
         self.scheduler = None
 
@@ -65,6 +69,7 @@ class IngestionScheduler:
 
                     saved = 0
                     duplicates = 0
+                    saved_articles = []
 
                     # Save articles to DB
                     for item in processed_items:
@@ -88,7 +93,10 @@ class IngestionScheduler:
                                     logger.debug(f"  Content crawled: {len(full_content)} chars")
 
                                 article = Article(**item)
+                                article.feed_source = feed_source
+                                article.category = feed_source.category
                                 db.add(article)
+                                saved_articles.append(article)
                                 saved += 1
                             except Exception as e:
                                 logger.error(f"Error saving article: {e}")
@@ -99,6 +107,8 @@ class IngestionScheduler:
                         db.commit()
                         feed_source.last_fetched_at = datetime.utcnow()
                         db.commit()
+                        if settings.HDFS_ENABLED and saved_articles:
+                            await self._write_articles_to_hdfs(saved_articles)
                     except Exception as e:
                         logger.error(f"Error committing batch: {e}")
                         db.rollback()
@@ -181,6 +191,23 @@ class IngestionScheduler:
         except Exception as e:
             logger.error(f"Error logging ingestion: {e}")
             db.rollback()
+
+    async def _write_articles_to_hdfs(self, articles: list[Article]):
+        """Write committed articles to HDFS without rolling back the SQL store."""
+        try:
+            written_files = await self.hdfs_writer.write_articles(articles)
+            if settings.HIVE_SYNC_ENABLED:
+                await self._sync_hive_metadata()
+            logger.info("HDFS write complete: %s", ", ".join(written_files))
+        except Exception as e:
+            logger.error(f"Error writing articles to HDFS: {e}")
+
+    async def _sync_hive_metadata(self):
+        """Ensure Hive can see the latest HDFS partitions for Superset."""
+        try:
+            await asyncio.to_thread(self.hive_manager.sync)
+        except Exception as e:
+            logger.error(f"Error syncing Hive metadata: {e}")
 
     def start(self):
         """Start the scheduler"""
