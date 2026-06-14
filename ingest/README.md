@@ -35,6 +35,9 @@ docker-compose logs -f app
 - 🔄 **Scheduled Ingestion**: Every 30 minutes (configurable)
 - 🔗 **Multi-Source**: 9 Vietnamese news feeds across 3 categories
 - ✅ **Smart Deduplication**: By title + publication date
+- 🗂️ **HDFS Data Lake**: Writes committed articles as JSONL partitions
+- 🐝 **Hive Analytics**: External table over HDFS article data with automatic partition refresh
+- 📈 **Superset Ready**: Docker service with Hive driver for dashboards
 - 🔁 **Resilience**: Exponential backoff retry (up to 4 retries)
 - 📊 **Full Logging**: Complete ingestion statistics and audit trail
 - 🐳 **Docker Ready**: Containerized with MySQL
@@ -98,7 +101,44 @@ DEBUG=false
 INGEST_INTERVAL_MINUTES=30
 MAX_RETRIES=4
 REQUEST_TIMEOUT_SECONDS=10
+
+# HDFS / Hive
+HDFS_ENABLED=true
+HDFS_WEBHDFS_URL=http://localhost:9870
+HDFS_USER=root
+HDFS_ARTICLES_PATH=/data/rss/articles
+HIVE_HOST=localhost
+HIVE_PORT=10000
+HIVE_DATABASE=rss_analytics
+HIVE_AUTH_MODE=NONE
+HIVE_SYNC_ENABLED=true
 ```
+
+## Hive & Superset
+
+After the first successful ingestion cycle, the application will create the Hive external table and refresh partitions automatically.
+
+If you need to do it manually:
+
+```bash
+docker-compose exec -T hive-server hive < hive/create_rss_articles_table.sql
+```
+
+Open Superset at http://localhost:8088 and sign in with `admin` / `admin` unless changed in `.env`.
+
+The Superset container now bootstraps the Hive database connection and `rss_articles` dataset automatically on startup.
+
+If you want to override the defaults, set:
+
+```env
+SUPERSET_DATABASE_NAME=rss_hive
+SUPERSET_DATABASE_URI=hive://hive-server:10000/rss_analytics
+SUPERSET_DATASET_SCHEMA=rss_analytics
+SUPERSET_DATASET_TABLE=rss_articles
+SUPERSET_DATASET_LABEL=RSS Articles
+```
+
+Then build charts such as article count by `category_name`, count by `feed_source_name`, or trend by `dt`.
 
 ## Database Schema
 
@@ -151,11 +191,13 @@ REQUEST_TIMEOUT_SECONDS=10
         │ 2. Data Processor       │
         │ 3. Deduplicator        │
         │ 4. Database Persister  │
+        │ 5. HDFS JSONL Writer   │
+        │ 6. Hive Partition Sync │
         └──────┬──────────────────┘
                │
-        ┌──────▼──────────┐
-        │  MySQL Database │
-        └─────────────────┘
+        ┌──────▼──────────┐       ┌──────────────┐       ┌──────────┐
+        │  MySQL Database │       │ HDFS / Hive  │       │ Superset │
+        └─────────────────┘       └──────────────┘       └──────────┘
 ```
 
 ## Implementation Details
@@ -178,6 +220,16 @@ REQUEST_TIMEOUT_SECONDS=10
 - Creates URL-friendly slugs
 - Truncates long text fields
 - Normalizes whitespace
+
+### HDFS Layout
+
+Committed articles are written as newline-delimited JSON:
+
+```text
+/data/rss/articles/dt=YYYY-MM-DD/articles_<timestamp>_<uuid>.jsonl
+```
+
+Hive reads the same path through the external table in `hive/create_rss_articles_table.sql`, and the app runs `MSCK REPAIR TABLE` after each HDFS write so new `dt=` partitions are visible to Superset.
 
 ## Example Usage
 

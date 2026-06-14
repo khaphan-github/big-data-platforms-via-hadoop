@@ -33,7 +33,7 @@ def seed_database(reset: bool = False):
     try:
         if reset:
             logger.warning("Resetting database - dropping all tables...")
-            from db.database import Base
+            from models.base import Base
             Base.metadata.drop_all(bind=engine)
             logger.info("All tables dropped")
         

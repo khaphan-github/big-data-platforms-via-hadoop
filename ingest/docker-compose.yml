@@ -1,12 +1,12 @@
-version: "3.8"
+name: bigdata
 
 services:
   mysql:
     image: mysql:8.0
-    container_name: rss_mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      MYSQL_INITDB_SKIP_TZINFO: 1
     ports:
       - "3308:3306"
     volumes:
@@ -18,7 +18,6 @@ services:
 
   app:
     build: .
-    container_name: rss_app
     environment:
       MYSQL_HOST: mysql
       MYSQL_PORT: 3306
@@ -32,14 +31,162 @@ services:
       INGEST_INTERVAL_MINUTES: ${INGEST_INTERVAL_MINUTES:-1}
       MAX_RETRIES: ${MAX_RETRIES:-4}
       REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-10}
+      HDFS_ENABLED: ${HDFS_ENABLED:-true}
+      HDFS_WEBHDFS_URL: ${HDFS_WEBHDFS_URL:-http://namenode:9870}
+      HDFS_USER: ${HDFS_USER:-root}
+      HDFS_ARTICLES_PATH: ${HDFS_ARTICLES_PATH:-/data/rss/articles}
+      HDFS_TIMEOUT_SECONDS: ${HDFS_TIMEOUT_SECONDS:-30}
+      HIVE_HOST: ${HIVE_HOST:-hive-server}
+      HIVE_PORT: ${HIVE_PORT:-10000}
+      HIVE_DATABASE: ${HIVE_DATABASE:-rss_analytics}
+      HIVE_ARTICLES_TABLE: ${HIVE_ARTICLES_TABLE:-rss_articles}
+      HIVE_AUTH_MODE: ${HIVE_AUTH_MODE:-NONE}
+      HIVE_SYNC_ENABLED: ${HIVE_SYNC_ENABLED:-true}
     ports:
       - "8000:8000"
     depends_on:
       mysql:
         condition: service_healthy
+      namenode:
+        condition: service_started
     volumes:
       - ./logs:/app/logs
     restart: unless-stopped
 
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
+    environment:
+      CLUSTER_NAME: rss-cluster
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      SERVICE_PRECONDITION: namenode:9870
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  hive-metastore-postgresql:
+    image: postgres:13
+    platform: linux/amd64
+    volumes:
+      - hive_metastore_postgresql:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hive -d metastore"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  hive-metastore-init:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    platform: linux/amd64
+    command: /opt/hive/scripts/init-hive-metastore.sh
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionURL: jdbc:postgresql://hive-metastore-postgresql:5432/metastore
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionDriverName: org.postgresql.Driver
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionUserName: hive
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionPassword: hive
+    volumes:
+      - ./hive:/opt/hive/scripts
+    depends_on:
+      hive-metastore-postgresql:
+        condition: service_healthy
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    platform: linux/amd64
+    command:
+      - /opt/hive/bin/hive
+      - --service
+      - metastore
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      SERVICE_PRECONDITION: namenode:9870 datanode:9864 hive-metastore-postgresql:5432
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionURL: jdbc:postgresql://hive-metastore-postgresql:5432/metastore
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionDriverName: org.postgresql.Driver
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionUserName: hive
+      HIVE_SITE_CONF_javax_jdo_option_ConnectionPassword: hive
+    ports:
+      - "9083:9083"
+    restart: unless-stopped
+    depends_on:
+      hive-metastore-init:
+        condition: service_completed_successfully
+      namenode:
+        condition: service_started
+      datanode:
+        condition: service_started
+      hive-metastore-postgresql:
+        condition: service_healthy
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    platform: linux/amd64
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      HIVE_SITE_CONF_hive_metastore_uris: thrift://hive-metastore:9083
+      SERVICE_PRECONDITION: hive-metastore:9083
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+    volumes:
+      - ./hive:/opt/hive/scripts
+    restart: unless-stopped
+    depends_on:
+      - hive-metastore
+
+  superset:
+    build:
+      context: .
+      dockerfile: Dockerfile.superset
+    platform: linux/amd64
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-rss_superset_secret_change_me}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME:-RSS}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME:-Admin}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL:-admin@example.com}
+      HIVE_HOST: ${HIVE_HOST:-hive-server}
+      HIVE_PORT: ${HIVE_PORT:-10000}
+      HIVE_DATABASE: ${HIVE_DATABASE:-rss_analytics}
+      HIVE_ARTICLES_TABLE: ${HIVE_ARTICLES_TABLE:-rss_articles}
+      SUPERSET_DATABASE_NAME: ${SUPERSET_DATABASE_NAME:-rss_hive}
+      SUPERSET_DATABASE_URI: ${SUPERSET_DATABASE_URI:-hive://hive-server:10000/rss_analytics}
+      SUPERSET_DATASET_SCHEMA: ${SUPERSET_DATASET_SCHEMA:-rss_analytics}
+      SUPERSET_DATASET_TABLE: ${SUPERSET_DATASET_TABLE:-rss_articles}
+      SUPERSET_DATASET_LABEL: ${SUPERSET_DATASET_LABEL:-RSS Articles}
+    command: >
+      /bin/sh -ec "superset db upgrade;
+      superset fab create-admin --username $$SUPERSET_ADMIN_USER --firstname $$SUPERSET_ADMIN_FIRSTNAME --lastname $$SUPERSET_ADMIN_LASTNAME --email $$SUPERSET_ADMIN_EMAIL --password $$SUPERSET_ADMIN_PASSWORD || true;
+      superset init;
+      python /app/bootstrap_superset.py || true;
+      exec superset run -h 0.0.0.0 -p 8088"
+    ports:
+      - "8088:8088"
+    restart: unless-stopped
+    depends_on:
+      - hive-server
+
 volumes:
   mysql_data:
+  hadoop_namenode:
+  hadoop_datanode:
+  hive_metastore_postgresql:
