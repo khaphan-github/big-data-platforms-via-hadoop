@@ -28,6 +28,10 @@ RUN curl -fSL "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin
     rm -f /tmp/spark-3.5.0-bin-hadoop3.tgz && \
     chown -R root:root /opt/spark-3.5.0-bin-hadoop3 /opt/spark
 
+# Create a directory for Spark jars and copy the MySQL connector
+RUN mkdir -p /opt/spark/jars/
+COPY download/mysql-connector-j-8.4.0.jar /opt/spark/jars/
+
 RUN groupadd -r spark && useradd -r -g spark spark
 
 RUN mkdir -p /var/lib/spark/work \
