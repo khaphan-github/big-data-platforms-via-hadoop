@@ -1,0 +1,25 @@
+FROM apache/spark:3.5.0
+
+LABEL role="spark-master" \
+      description="Apache Spark 3.5.0 Master wrapper using cached base image"
+
+USER root
+
+RUN mkdir -p /opt/spark/scripts /opt/spark/conf /var/lib/spark/work /var/log/spark && \
+    chown -R spark:spark /opt/spark /var/lib/spark/work /var/log/spark
+
+COPY scripts/entrypoint-spark-master.sh /opt/spark/scripts/entrypoint.sh
+COPY config/spark-env.sh /opt/spark/conf/spark-env.sh
+COPY config/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+RUN chmod +x /opt/spark/scripts/*.sh && \
+    chown -R spark:spark /opt/spark/scripts /opt/spark/conf
+
+USER spark
+
+EXPOSE 7077 8080 4040 22 7078
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8080 || exit 1
+
+ENTRYPOINT ["/opt/spark/scripts/entrypoint.sh"]

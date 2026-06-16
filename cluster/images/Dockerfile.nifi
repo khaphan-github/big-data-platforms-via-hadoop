@@ -1,0 +1,29 @@
+FROM apache/nifi:1.27.0
+
+LABEL role="nifi" \
+      description="Apache NiFi wrapper using cached base image"
+
+USER root
+
+RUN ln -sfn /opt/nifi/nifi-current /opt/nifi-1.25.0 && \
+    mkdir -p /var/lib/nifi/data /var/lib/nifi/conf /var/log/nifi && \
+    chown -R nifi:nifi /opt/nifi /var/lib/nifi /var/log/nifi
+
+COPY config/nifi.properties /opt/nifi-1.25.0/conf/nifi.properties
+COPY download/mysql-connector-j-8.4.0.jar /opt/nifi-1.25.0/lib/mysql-connector-j-8.4.0.jar
+
+RUN chown nifi:nifi /opt/nifi-1.25.0/conf/nifi.properties /opt/nifi-1.25.0/lib/mysql-connector-j-8.4.0.jar
+
+USER nifi
+
+ENV NIFI_WEB_HTTP_PORT=8161 \
+    NIFI_CLUSTER_IS_NODE=false \
+    NIFI_CLUSTER_NODE_PROTOCOL_PORT=8080
+
+EXPOSE 8161
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
+    CMD curl -f http://localhost:8161/nifi/ || exit 1
+
+ENTRYPOINT []
+CMD ["/bin/bash", "-c", "/opt/nifi-1.25.0/bin/nifi.sh start && sleep 2 && tail -f /opt/nifi-1.25.0/logs/nifi-app.log"]

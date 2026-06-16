@@ -1,0 +1,28 @@
+# SBT build output
+target/
+project/target/
+project/project/target/
+
+# SBT cache and metadata
+.bsp/
+.scala-build/
+
+# IDE files
+.idea/
+.idea_modules/
+*.iml
+.metals/
+.vscode/
+
+# Scala-specific
+*.class
+*.tasty
+
+# Assembly / fat JAR
+*.jar
+!libs/**/*.jar
+
+# OS
+.DS_Store
+Thumbs.db
+mock_data/**/.json

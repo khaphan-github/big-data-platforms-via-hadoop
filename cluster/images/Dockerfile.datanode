@@ -1,0 +1,21 @@
+FROM bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+
+LABEL role="datanode" \
+      description="Hadoop DataNode wrapper using cached base image"
+
+USER root
+
+RUN groupadd -r hadoop && useradd -r -g hadoop hadoop && \
+    ln -sfn /opt/hadoop-3.2.1 /opt/hadoop && \
+    mkdir -p /opt/hadoop/scripts /var/lib/hadoop-hdfs/cache/dfs/data /var/log/hadoop-hdfs /var/log/hadoop-yarn /var/log/hadoop && \
+    chown -R hadoop:hadoop /opt/hadoop-3.2.1 /opt/hadoop /var/lib/hadoop-hdfs/cache/dfs/data /var/log/hadoop-hdfs /var/log/hadoop-yarn /var/log/hadoop
+
+COPY scripts/entrypoint-datanode.sh /opt/hadoop/scripts/entrypoint.sh
+
+RUN chmod +x /opt/hadoop/scripts/*.sh
+
+USER hadoop
+
+EXPOSE 9864
+
+ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]

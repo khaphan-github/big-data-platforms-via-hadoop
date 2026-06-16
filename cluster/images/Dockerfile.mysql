@@ -1,0 +1,18 @@
+FROM mysql:8.0
+
+LABEL role="mysql" \
+      description="MySQL wrapper using cached base image"
+
+USER root
+
+RUN mkdir -p /var/lib/mysql /var/log/mysql /var/run/mysqld && \
+    chown -R mysql:mysql /var/lib/mysql /var/log/mysql /var/run/mysqld && \
+    chmod 755 /var/lib/mysql /var/log/mysql /var/run/mysqld
+
+COPY config/my.cnf /etc/mysql/conf.d/my.cnf
+COPY config/mysql-init.sql /docker-entrypoint-initdb.d/01-init.sql
+
+RUN chmod 644 /etc/mysql/conf.d/my.cnf /docker-entrypoint-initdb.d/01-init.sql && \
+    chown mysql:mysql /etc/mysql/conf.d/my.cnf /docker-entrypoint-initdb.d/01-init.sql
+
+EXPOSE 3306

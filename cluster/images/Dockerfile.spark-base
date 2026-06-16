@@ -1,0 +1,47 @@
+FROM ubuntu:20.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
+    SPARK_HOME=/opt/spark \
+    SPARK_VERSION=3.5.0 \
+    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin:/opt/spark/bin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-11-jdk-headless \
+    ca-certificates \
+    curl \
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies used by Spark jobs
+COPY config/spark-requirement.txt /tmp/spark-requirement.txt
+RUN pip3 install --no-cache-dir -r /tmp/spark-requirement.txt && \
+    rm -f /tmp/spark-requirement.txt
+
+# Download and extract Spark
+RUN curl -fSL "https://archive.apache.org/dist/spark/spark-3.5.0/spark-3.5.0-bin-hadoop3.tgz" -o /tmp/spark-3.5.0-bin-hadoop3.tgz && \
+    mkdir -p /opt && \
+    tar -xzf /tmp/spark-3.5.0-bin-hadoop3.tgz -C /opt && \
+    test -x /opt/spark-3.5.0-bin-hadoop3/bin/spark-shell && \
+    ln -s /opt/spark-3.5.0-bin-hadoop3 /opt/spark && \
+    rm -f /tmp/spark-3.5.0-bin-hadoop3.tgz && \
+    chown -R root:root /opt/spark-3.5.0-bin-hadoop3 /opt/spark
+
+RUN groupadd -r spark && useradd -r -g spark spark
+
+RUN mkdir -p /var/lib/spark/work \
+    /var/lib/spark/logs \
+    /var/log/spark \
+    /opt/spark-logs && \
+    chown -R spark:spark /var/lib/spark \
+    /var/log/spark \
+    /opt/spark-logs
+
+# Expose common Spark ports
+EXPOSE 7077 8080 8081 4040 7078
+
+WORKDIR /opt/spark
+
+USER spark
+CMD ["bash"]

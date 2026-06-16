@@ -1,0 +1,101 @@
+name: bigdata
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      MYSQL_INITDB_SKIP_TZINFO: 1
+    ports:
+      - "3308:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      DEBUG: ${DEBUG:-false}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      INGEST_INTERVAL_MINUTES: ${INGEST_INTERVAL_MINUTES:-1}
+      MAX_RETRIES: ${MAX_RETRIES:-4}
+      REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-10}
+      HDFS_ENABLED: ${HDFS_ENABLED:-true}
+      HDFS_WEBHDFS_URL: http://namenode:9870
+      HDFS_USER: ${HDFS_USER:-root}
+      HDFS_ARTICLES_PATH: ${HDFS_ARTICLES_PATH:-/data/rss/articles}
+      HDFS_TIMEOUT_SECONDS: ${HDFS_TIMEOUT_SECONDS:-30}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      namenode:
+        condition: service_started
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
+    environment:
+      CLUSTER_NAME: rss-cluster
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    platform: linux/amd64
+    environment:
+      CORE_CONF_fs_defaultFS: hdfs://namenode:9000
+      SERVICE_PRECONDITION: namenode:9870
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - namenode
+
+  birt:
+    build:
+      context: .
+      dockerfile: Dockerfile.birt
+    platform: linux/amd64
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
+      BIRT_REPORTS_DIR: ${BIRT_REPORTS_DIR:-/opt/birt/reports}
+      BIRT_DEFAULT_REPORT: ${BIRT_DEFAULT_REPORT:-rss_articles_dashboard.rptdesign}
+      BIRT_VIEWER_CONTEXT: ${BIRT_VIEWER_CONTEXT:-/birt}
+    ports:
+      - "8088:8080"
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    volumes:
+      - ./birt/reports:/opt/birt/reports
+      - ../cluster/download/mysql-connector-j-8.4.0.jar:/opt/birt/drivers/mysql-connector-j-8.4.0.jar:ro
+
+volumes:
+  mysql_data:
+  hadoop_namenode:
+  hadoop_datanode:

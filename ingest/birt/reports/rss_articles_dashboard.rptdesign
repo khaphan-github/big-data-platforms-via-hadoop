@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report xmlns="http://www.eclipse.org/birt/2005/design"
+        version="3.2.23"
+        id="1">
+  <property name="createdBy">Codex</property>
+  <property name="units">in</property>
+  <data-sources>
+    <oda-data-source extensionID="org.eclipse.birt.report.data.oda.jdbc" name="MySQLDataSource" id="2">
+      <property name="odaDriverClass">com.mysql.cj.jdbc.Driver</property>
+      <property name="odaURL">jdbc:mysql://mysql:3306/rss_ingest?useSSL=false&amp;serverTimezone=UTC</property>
+      <property name="odaUser">root</property>
+      <property name="odaPassword">rss_password</property>
+    </oda-data-source>
+  </data-sources>
+  <data-sets>
+    <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc" name="ArticlesByCategory" id="3">
+      <property name="dataSource">MySQLDataSource</property>
+      <property name="queryText">SELECT c.name AS category_name, COUNT(*) AS article_count FROM articles a JOIN categories c ON a.category_id = c.id GROUP BY c.name ORDER BY article_count DESC</property>
+    </oda-data-set>
+    <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc" name="ArticlesByFeed" id="4">
+      <property name="dataSource">MySQLDataSource</property>
+      <property name="queryText">SELECT fs.name AS feed_source_name, COUNT(*) AS article_count FROM articles a JOIN feed_sources fs ON a.feed_source_id = fs.id GROUP BY fs.name ORDER BY article_count DESC</property>
+    </oda-data-set>
+    <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc" name="ArticlesByDay" id="5">
+      <property name="dataSource">MySQLDataSource</property>
+      <property name="queryText">SELECT DATE(fetched_date) AS day, COUNT(*) AS article_count FROM articles GROUP BY DATE(fetched_date) ORDER BY day</property>
+    </oda-data-set>
+  </data-sets>
+  <body>
+    <!-- Dashboard starter:
+         - category chart
+         - feed chart
+         - daily trend chart
+         Build the visual layout in BIRT Designer. -->
+  </body>
+</report>
