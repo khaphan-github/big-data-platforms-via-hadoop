@@ -1,0 +1,182 @@
+FROM tomcat:9.0-jdk17-temurin
+
+USER root
+
+ARG BIRT_RUNTIME_URL=https://download.eclipse.org/birt/updates/release/latest/birt-runtime-4.23.0-202603110852.zip
+
+ENV BIRT_HOME=/opt/birt \
+    BIRT_REPORTS_DIR=/opt/birt/reports \
+    BIRT_DRIVERS_DIR=/opt/birt/drivers \
+    MYSQL_HOST=mysql \
+    MYSQL_PORT=3306 \
+    MYSQL_DATABASE=rss_ingest \
+    MYSQL_USER=root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl unzip ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    mkdir -p "$BIRT_HOME" "$BIRT_REPORTS_DIR" "$BIRT_DRIVERS_DIR" /usr/local/tomcat/webapps/ROOT; \
+    curl -fsSL "$BIRT_RUNTIME_URL" -o /tmp/birt-runtime.zip; \
+    unzip -q /tmp/birt-runtime.zip -d "$BIRT_HOME"; \
+    rm -f /tmp/birt-runtime.zip; \
+    war_path="$(find "$BIRT_HOME" -type f -name '*.war' | head -n 1 || true)"; \
+    if [ -n "$war_path" ]; then \
+      cp "$war_path" /usr/local/tomcat/webapps/birt.war; \
+    fi; \
+    viewer_dir="$(find "$BIRT_HOME" -maxdepth 4 -type d \( -iname '*webviewer*' -o -iname '*viewer*' \) | head -n 1 || true)"; \
+    if [ -n "$viewer_dir" ] && [ ! -f /usr/local/tomcat/webapps/birt.war ]; then \
+      mkdir -p /usr/local/tomcat/webapps/birt; \
+      cp -R "$viewer_dir"/. /usr/local/tomcat/webapps/birt/; \
+    fi; \
+    cat > /usr/local/tomcat/webapps/ROOT/index.html <<'EOF'
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RSS BIRT Portal</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #0f172a;
+        --panel: #111827;
+        --text: #e5e7eb;
+        --muted: #9ca3af;
+        --accent: #22c55e;
+        --accent-2: #38bdf8;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 32%),
+          radial-gradient(circle at top right, rgba(34, 197, 94, 0.18), transparent 28%),
+          linear-gradient(160deg, #020617 0%, #0f172a 50%, #111827 100%);
+        color: var(--text);
+        display: grid;
+        place-items: center;
+        padding: 32px;
+      }
+      .card {
+        max-width: 760px;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 20px 60px rgba(2, 6, 23, 0.5);
+        backdrop-filter: blur(10px);
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--accent-2);
+        font-size: 12px;
+        font-weight: 700;
+      }
+      h1 {
+        margin: 10px 0 12px;
+        font-size: clamp(2rem, 5vw, 3.4rem);
+        line-height: 1.05;
+      }
+      p {
+        margin: 0 0 14px;
+        color: var(--muted);
+        line-height: 1.65;
+      }
+      a {
+        color: var(--accent-2);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 24px;
+      }
+      .panel {
+        background: rgba(17, 24, 39, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 16px;
+        padding: 16px;
+      }
+      .panel strong {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--text);
+      }
+      code {
+        font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+        color: #fbbf24;
+      }
+      .badge {
+        display: inline-block;
+        margin-top: 18px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(34, 197, 94, 0.14);
+        color: #86efac;
+        font-weight: 600;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <div class="eyebrow">BIRT Visualization</div>
+      <h1>RSS analytics reporting portal</h1>
+      <p>
+        The BIRT runtime is deployed in this container. Place report designs in
+        <code>/opt/birt/reports</code> and open the viewer at <code>/birt</code>
+        if the bundled web viewer is available in the runtime bundle.
+      </p>
+      <p>
+        Data source defaults:
+        <code>${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}</code>
+        over direct MySQL JDBC.
+      </p>
+      <div class="grid">
+        <section class="panel">
+          <strong>Viewer</strong>
+          <p><a href="/birt">Open the BIRT web viewer</a></p>
+        </section>
+        <section class="panel">
+          <strong>Reports</strong>
+          <p>Mount <code>.rptdesign</code> files into <code>/opt/birt/reports</code>.</p>
+        </section>
+        <section class="panel">
+          <strong>MySQL</strong>
+          <p>Use JDBC to read tables from the ingestion database directly.</p>
+        </section>
+      </div>
+      <div class="badge">Port 8080 inside container, mapped to 8088 on host</div>
+    </main>
+  </body>
+</html>
+EOF
+
+RUN chown -R tomcat:tomcat /opt/birt /usr/local/tomcat/webapps /usr/local/tomcat/lib
+
+RUN cat > /usr/local/bin/birt-entrypoint.sh <<'EOF'
+#!/bin/sh
+set -eu
+
+if [ -d /opt/birt/drivers ]; then
+  for jar in /opt/birt/drivers/*.jar; do
+    [ -e "$jar" ] || continue
+    cp "$jar" /usr/local/tomcat/lib/
+  done
+fi
+
+exec catalina.sh run
+EOF
+
+RUN chmod +x /usr/local/bin/birt-entrypoint.sh
+
+USER tomcat
+
+EXPOSE 8080
+
+ENTRYPOINT ["/usr/local/bin/birt-entrypoint.sh"]

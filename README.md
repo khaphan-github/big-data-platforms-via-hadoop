@@ -9,11 +9,12 @@ Analyze trending keywords from Vietnamese news using Hadoop, Spark, and FastAPI.
    ```bash
    cd cluster/download &&  ./download.sh
    ```
+   This step is optional if your machine has internet access during image builds. It prefetches the large archives used by the Dockerfiles.
 
 2. **Start cluster** (wait ~3 minutes for services to be ready)
 
    ```bash
-   docker-compose up -d
+   docker-compose up -d --build
    ```
 
 3. **Ingest service**

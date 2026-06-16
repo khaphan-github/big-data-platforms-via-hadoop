@@ -43,6 +43,7 @@ class TrendingWordsSparkJob:
             .config("spark.executor.memory", "2g") \
             .config("spark.executor.cores", "2") \
             .config("spark.driver.memory", "2g") \
+            .config("spark.jars", "/opt/spark/jars/mysql-connector-j-8.4.0.jar") \
             .getOrCreate()
     
     def _extract_keywords_udf(self):
@@ -102,6 +103,27 @@ class TrendingWordsSparkJob:
             
             result_df.write.mode("overwrite").parquet(self.hdfs_output)
             result_df.coalesce(1).write.mode("overwrite").option("header", "true").csv(self.hdfs_output + "_csv")
+            
+            # Write to MySQL
+            mysql_table_name = "trending_words"
+            mysql_url = "jdbc:mysql://mysql:3306/rss_ingest"
+            mysql_properties = {
+                "user": "root",
+                "password": "rss_password",
+                "driver": "com.mysql.cj.jdbc.Driver"
+            }
+            
+            print(f"Writing trending words to MySQL table: {mysql_table_name}")
+            result_df.write \
+                .format("jdbc") \
+                .option("url", mysql_url) \
+                .option("dbtable", mysql_table_name) \
+                .option("user", mysql_properties["user"]) \
+                .option("password", mysql_properties["password"]) \
+                .option("driver", mysql_properties["driver"]) \
+                .mode("overwrite") \
+                .save()
+            print(f"Successfully wrote trending words to MySQL.")
             
             print(f"Completed! Results: {result_df.count()} keywords")
             result_df.limit(10).show(truncate=False)

@@ -18,7 +18,7 @@ COPY config/hdfs-site.xml /tmp/hdfs-site.xml
 
 RUN groupadd -r hadoop && useradd -r -g hadoop hadoop
 
-RUN test -f /tmp/hadoop-3.3.6.tar.gz && \
+RUN curl -fSL "https://archive.apache.org/dist/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz" -o /tmp/hadoop-3.3.6.tar.gz && \
     mkdir -p /opt && \
     tar -xzf /tmp/hadoop-3.3.6.tar.gz -C /opt && \
     test -x /opt/hadoop-3.3.6/bin/hadoop && \

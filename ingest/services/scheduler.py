@@ -1,4 +1,3 @@
-import asyncio
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -12,7 +11,6 @@ from services.content_crawler import ContentCrawler
 from services.deduplicator import Deduplicator
 from services.data_processor import DataProcessor
 from services.hdfs_writer import HDFSWriter
-from services.hive_manager import HiveManager
 from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -25,7 +23,6 @@ class IngestionScheduler:
         self.fetcher = None
         self.crawler = None
         self.hdfs_writer = HDFSWriter()
-        self.hive_manager = HiveManager()
         self.is_running = False
         self.scheduler = None
 
@@ -196,18 +193,9 @@ class IngestionScheduler:
         """Write committed articles to HDFS without rolling back the SQL store."""
         try:
             written_files = await self.hdfs_writer.write_articles(articles)
-            if settings.HIVE_SYNC_ENABLED:
-                await self._sync_hive_metadata()
             logger.info("HDFS write complete: %s", ", ".join(written_files))
         except Exception as e:
             logger.error(f"Error writing articles to HDFS: {e}")
-
-    async def _sync_hive_metadata(self):
-        """Ensure Hive can see the latest HDFS partitions for Superset."""
-        try:
-            await asyncio.to_thread(self.hive_manager.sync)
-        except Exception as e:
-            logger.error(f"Error syncing Hive metadata: {e}")
 
     def start(self):
         """Start the scheduler"""

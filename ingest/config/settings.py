@@ -37,14 +37,6 @@ class Settings(BaseSettings):
     HDFS_ARTICLES_PATH: str = "/data/rss/articles"
     HDFS_TIMEOUT_SECONDS: int = 30
 
-    # Hive
-    HIVE_HOST: str = "localhost"
-    HIVE_PORT: int = 10000
-    HIVE_DATABASE: str = "rss_analytics"
-    HIVE_ARTICLES_TABLE: str = "rss_articles"
-    HIVE_AUTH_MODE: str = "NONE"
-    HIVE_SYNC_ENABLED: bool = True
-
     class Config:
         env_file = ".env"
         case_sensitive = True
