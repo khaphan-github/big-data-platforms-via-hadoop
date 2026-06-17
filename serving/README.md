@@ -1,28 +1,26 @@
 # ToDO: Draw chart this this data via UI
 
 ```sql
-CREATE TABLE table_trending_words (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+CREATE TABLE trending_words (
     ngay VARCHAR(8) NOT NULL COMMENT 'Date in format yyyyMMdd',
     nguon VARCHAR(100) NOT NULL COMMENT 'Source: ThanhNien, TuoiTre, VNN',
     chu_de VARCHAR(100) NOT NULL COMMENT 'Category: GiaiTri, CongNghe, SucKhoe',
     tu_khoa VARCHAR(255) NOT NULL COMMENT 'Vietnamese keyword',
-    so_lan_xuat_hien INT NOT NULL DEFAULT 1 COMMENT 'Occurrence count',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    so_lan_xuat_hien INT NOT NULL DEFAULT 1 COMMENT 'Occurrence count'
 );
 
 SELECT chu_de, COUNT(\*) as so_luong_tu_khoa
-FROM table_trending_words
+FROM trending_words
 GROUP BY chu_de;
 
 SELECT tu_khoa, SUM(so_lan_xuat_hien) as tong
-FROM table_trending_words
+FROM trending_words
 GROUP BY tu_khoa
 ORDER BY tong DESC
 LIMIT 20;
 
 SELECT chu_de, tu_khoa, SUM(so_lan_xuat_hien) as tong
-FROM table_trending_words
+FROM trending_words
 GROUP BY chu_de, tu_khoa
 ORDER BY chu_de, tong DESC;
 ```
@@ -31,7 +29,7 @@ ORDER BY chu_de, tong DESC;
 
 ## Huong dan chay serving
 
-Thu muc nay cung cap FastAPI de tao va xem bieu do tu bang `table_trending_words`.
+Thu muc nay cung cap FastAPI de tao va xem bieu do tu bang `trending_words`.
 
 ### 1) Cai dat thu vien
 
@@ -75,4 +73,4 @@ Sau khi goi API, anh se duoc luu trong `serving/static/`:
 
 ### 5) Luu y ket noi database
 
-File `db/database.py` dang su dung thong tin MySQL cuc bo. Neu ban chay database khac port, hay cap nhat lai thong so ket noi cho phu hop voi moi truong cua ban.
+File `db/database.py` mac dinh doc MySQL service `mysql`, database `rss_ingest`, bang `trending_words` theo Spark job cua Khanh. Neu ban chay database khac port, hay cap nhat lai thong so ket noi cho phu hop voi moi truong cua ban.

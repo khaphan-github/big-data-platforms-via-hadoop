@@ -1,8 +1,4 @@
 from pathlib import Path
-from collections import Counter
-import html
-import re
-import unicodedata
 
 import matplotlib
 matplotlib.use("Agg")
@@ -21,66 +17,8 @@ plt.rcParams["font.family"] = "DejaVu Sans"
 plt.rcParams["axes.unicode_minus"] = False
 
 
-VIETNAMESE_STOPWORDS = {
-    "và", "là", "của", "có", "cho", "với", "các", "những", "một", "này",
-    "đó", "được", "trong", "khi", "về", "từ", "theo", "sau", "trước",
-    "đến", "tại", "trên", "dưới", "vào", "ra", "lại", "đã", "đang", "sẽ",
-    "bị", "do", "vì", "nên", "nếu", "thì", "hay", "hoặc", "như", "rằng",
-    "để", "cùng", "nhiều", "ít", "hơn", "nhất", "rất", "mới", "cũ",
-    "người", "ngày", "năm", "tháng", "giờ", "kỳ", "lần", "việc", "vụ",
-    "tin", "bài", "sự", "nói", "biết", "sau khi", "không", "đây", "kia",
-
-    # English/common noise
-    "the", "and", "or", "of", "to", "in", "on", "for", "with", "by", "from",
-    "is", "are", "was", "were", "be", "as", "at", "this", "that"
-}
-
-
 def _ensure_static_dir():
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def clean_text(value):
-    if value is None or pd.isna(value):
-        return ""
-
-    value = str(value)
-    value = html.unescape(value)
-    value = re.sub(r"<[^>]+>", " ", value)
-    value = unicodedata.normalize("NFC", value)
-    value = value.lower()
-
-    return value
-
-
-def extract_vietnamese_keywords(text):
-    text = clean_text(text)
-
-    # Bắt cả chữ tiếng Việt có dấu
-    words = re.findall(
-        r"[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠƯ"
-        r"àáâãèéêìíòóôõùúăđĩũơư"
-        r"Ạ-ỹ]+",
-        text
-    )
-
-    keywords = []
-
-    for word in words:
-        word = word.strip().lower()
-
-        if len(word) < 2:
-            continue
-
-        if word.isdigit():
-            continue
-
-        if word in VIETNAMESE_STOPWORDS:
-            continue
-
-        keywords.append(word)
-
-    return keywords
 
 
 # ==========================================
@@ -90,68 +28,50 @@ def extract_vietnamese_keywords(text):
 def get_articles_by_category():
     query = """
     SELECT
-        c.name AS category,
-        COUNT(a.id) AS total_articles
-    FROM categories c
-    LEFT JOIN articles a
-        ON a.category_id = c.id
-    GROUP BY c.id, c.name
+        chu_de AS category,
+        SUM(so_lan_xuat_hien) AS total_articles
+    FROM trending_words
+    GROUP BY chu_de
     ORDER BY total_articles DESC
     """
 
     return pd.read_sql(text(query), engine)
 
 
-def get_article_texts():
+def get_top_20_keywords():
     query = """
     SELECT
-        a.title,
-        a.description,
-        c.name AS category
-    FROM articles a
-    JOIN categories c
-        ON c.id = a.category_id
-    WHERE a.is_duplicate = 0 OR a.is_duplicate IS NULL
+        tu_khoa AS keyword,
+        SUM(so_lan_xuat_hien) AS frequency
+    FROM trending_words
+    GROUP BY tu_khoa
+    ORDER BY frequency DESC
+    LIMIT 20
     """
 
     return pd.read_sql(text(query), engine)
 
 
-def get_top_20_keywords():
-    df = get_article_texts()
-
-    counter = Counter()
-
-    for _, row in df.iterrows():
-        text = f"{row.get('title', '')} {row.get('description', '')}"
-        counter.update(extract_vietnamese_keywords(text))
-
-    return pd.DataFrame(
-        counter.most_common(20),
-        columns=["keyword", "frequency"]
-    )
-
-
 def get_top_10_keywords_by_category():
-    df = get_article_texts()
+    query = """
+    SELECT category, keyword, frequency
+    FROM (
+        SELECT
+            chu_de AS category,
+            tu_khoa AS keyword,
+            SUM(so_lan_xuat_hien) AS frequency,
+            ROW_NUMBER() OVER (
+                PARTITION BY chu_de
+                ORDER BY SUM(so_lan_xuat_hien) DESC
+            ) AS keyword_rank
+        FROM trending_words
+        GROUP BY chu_de, tu_khoa
+    ) ranked_keywords
+    WHERE keyword_rank <= 10
+    ORDER BY category, frequency DESC
+    """
 
-    rows = []
-
-    for category, group in df.groupby("category"):
-        counter = Counter()
-
-        for _, row in group.iterrows():
-            text = f"{row.get('title', '')} {row.get('description', '')}"
-            counter.update(extract_vietnamese_keywords(text))
-
-        for keyword, frequency in counter.most_common(10):
-            rows.append({
-                "category": category,
-                "keyword": keyword,
-                "frequency": frequency
-            })
-
-    return pd.DataFrame(rows)
+    return pd.read_sql(text(query), engine)
 
 
 # ==========================================
@@ -212,6 +132,7 @@ def plot_top_20_articles():
     plt.close()
 
     return str(output_path)
+
 
 def plot_top_10_by_category():
     df = get_top_10_keywords_by_category()

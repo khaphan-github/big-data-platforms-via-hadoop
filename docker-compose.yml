@@ -17,14 +17,14 @@ services:
       - "3030:3030"
 
     environment:
-      MYSQL_HOST: ingest-mysql
+      MYSQL_HOST: mysql
       MYSQL_PORT: 3306
       MYSQL_USER: root
       MYSQL_PASSWORD: rss_password
       MYSQL_DATABASE: rss_ingest
 
     depends_on:
-      ingest-mysql:
+      mysql:
         condition: service_healthy
 
     networks:

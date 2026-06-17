@@ -1,7 +1,7 @@
 import os
 from sqlalchemy import create_engine
 
-MYSQL_HOST = os.getenv("MYSQL_HOST", "ingest-mysql")
+MYSQL_HOST = os.getenv("MYSQL_HOST", "mysql")
 MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
 MYSQL_USER = os.getenv("MYSQL_USER", "root")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "rss_password")
