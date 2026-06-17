@@ -6,7 +6,32 @@ services:
       dockerfile: images/Dockerfile.base
     profiles:
       - build-only
+  rss-dashboard:
+    build:
+      context: ./serving
+      dockerfile: Dockerfile
 
+    container_name: rss-dashboard
+
+    ports:
+      - "3030:3030"
+
+    environment:
+      MYSQL_HOST: ingest-mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rss_password
+      MYSQL_DATABASE: rss_ingest
+
+    depends_on:
+      ingest-mysql:
+        condition: service_healthy
+
+    networks:
+      - hadoop-cluster
+
+    restart: unless-stopped
+    
   # HDFS Cluster
   namenode:
     image: cluster-hadoop-3.3.6:namenode

@@ -1,10 +1,20 @@
+import os
 from sqlalchemy import create_engine
 
-DB_URL = "mysql+pymysql://root:rss_password@127.0.0.1:3308/rss_ingest"
+MYSQL_HOST = os.getenv("MYSQL_HOST", "ingest-mysql")
+MYSQL_PORT = os.getenv("MYSQL_PORT", "3306")
+MYSQL_USER = os.getenv("MYSQL_USER", "root")
+MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "rss_password")
+MYSQL_DATABASE = os.getenv("MYSQL_DATABASE", "rss_ingest")
 
-print("DATABASE_URL =", DB_URL)
+DATABASE_URL = (
+    f"mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}"
+    f"@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}"
+)
+
+print("DATABASE_URL =", DATABASE_URL)
+
 engine = create_engine(
-    DB_URL,
-    pool_pre_ping=True,
-    pool_recycle=3600
+    DATABASE_URL,
+    pool_pre_ping=True
 )
