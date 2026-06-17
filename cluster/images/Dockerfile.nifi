@@ -1,10 +1,10 @@
 FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64 \
     NIFI_HOME=/opt/nifi \
     NIFI_VERSION=1.25.0 \
-    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin:/opt/nifi/bin
+    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-arm64/bin:/opt/nifi/bin
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-11-jdk-headless \

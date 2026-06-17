@@ -10,7 +10,7 @@ mkdir -p "${NAMENODE_DIR}"
 
 if [ ! -f "${NAMENODE_DIR}/current/fsimage" ]; then
   echo "[NameNode] First startup: formatting NameNode"
-  hdfs namenode -format -force -clusterId "${CLUSTER_ID}" >/dev/null 2>&1
+  hdfs namenode -format -force -clusterId "${CLUSTER_ID}"
 fi
 
 exec hdfs namenode

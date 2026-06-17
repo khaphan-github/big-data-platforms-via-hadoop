@@ -6,7 +6,32 @@ services:
       dockerfile: images/Dockerfile.base
     profiles:
       - build-only
+  rss-dashboard:
+    build:
+      context: ./serving
+      dockerfile: Dockerfile
 
+    container_name: rss-dashboard
+
+    ports:
+      - "3030:3030"
+
+    environment:
+      MYSQL_HOST: ingest-mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: root
+      MYSQL_PASSWORD: rss_password
+      MYSQL_DATABASE: rss_ingest
+
+    depends_on:
+      ingest-mysql:
+        condition: service_healthy
+
+    networks:
+      - hadoop-cluster
+
+    restart: unless-stopped
+    
   # HDFS Cluster
   namenode:
     image: cluster-hadoop-3.3.6:namenode
@@ -208,17 +233,15 @@ services:
   # # MySQL Database
   mysql:
     image: cluster-mysql-8.0:latest
-    build:
-      context: ./cluster
-      dockerfile: images/Dockerfile.mysql
     container_name: mysql-db
     hostname: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-rss_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - mysql-logs:/var/log/mysql
-      - ./cluster/config/my.cnf:/etc/mysql/my.cnf:ro
     networks:
       - hadoop-cluster
     healthcheck:
@@ -270,7 +293,7 @@ services:
 
   ingest-mysql:
     image: mysql:8.0
-    container_name: rss_mysql
+    container_name: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-rss_password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}
