@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Bỏ qua env vars không khai báo (vd: HIVE_*, SUPERSET_*)
 
     @property
     def database_url(self) -> str:

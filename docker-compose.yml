@@ -159,7 +159,7 @@ services:
       resources:
         limits:
           memory: 8g
-          cpus: "8"
+          cpus: "1"
     volumes:
       - spark-worker1-work:/var/lib/spark/work
       - spark-worker1-logs:/var/log/spark

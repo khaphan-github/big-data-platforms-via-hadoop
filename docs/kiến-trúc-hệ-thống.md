@@ -46,7 +46,7 @@ flowchart TB
         RSS["9 RSS Feeds<br/>(Vietnamnet, Thanh Niên, Tuổi Trẻ)"]
         API["FastAPI<br/>RSSFetcher + ContentCrawler"]
         MYSQL_INGEST["MySQL<br/>(rss_ingest)"]
-        NIFI["Apache NiFi<br/>DataFlow Automation"]
+        NIFI["Apache NiFi<br/>QueryDatabaseTable → PutHDFS"]
     end
 
     subgraph "Tầng lưu trữ (Storage Layer)"
@@ -60,20 +60,22 @@ flowchart TB
     end
 
     subgraph "Tầng trực quan hóa (Visualization Layer)"
-        MYSQL_SERVE["MySQL<br/>(table_trending_words)"]
-        BIRT["BIRT Reports<br/>Biểu đồ + Báo cáo"]
+        SQOOP["Apache Sqoop<br/>HDFS → MySQL export"]
+        MYSQL_SERVE["MySQL<br/>(trending_words table)"]
+        BIRT["Dashboard<br/>Biểu đồ + Báo cáo"]
     end
 
     RSS -->|"HTTP/XML"| API
     API -->|"JDBC"| MYSQL_INGEST
-    MYSQL_INGEST -->|"NiFi GetJDBC"| NIFI
-    NIFI -->|"PutHDFS"| HDFS
+    MYSQL_INGEST -->|"Flow 1: NiFi QueryDatabaseTable"| NIFI
+    NIFI -->|"Flow 1: NiFi PutHDFS"| HDFS
     HDFS -->|"Đọc JSON /raw_zone"| SPARK
     SPARK --> PYSPARK
     SPARK --> SCALA_SPARK
     PYSPARK -->|"Ghi Parquet + CSV"| HDFS
     SCALA_SPARK -->|"Ghi CSV"| HDFS
-    HDFS -->|"ETL / NiFi"| MYSQL_SERVE
+    HDFS -->|"Flow 2: Sqoop export CSV"| SQOOP
+    SQOOP -->|"INSERT"| MYSQL_SERVE
     MYSQL_SERVE -->|"JDBC"| BIRT
 ```
 
@@ -89,8 +91,8 @@ graph LR
         C[("MySQL<br/>rss_ingest")]
     end
 
-    subgraph "Tầng lưu trữ thô"
-        D["Apache NiFi<br/>(JDBC → HDFS)"]
+    subgraph "Flow 1 - Lưu trữ thô"
+        D["Apache NiFi<br/>(QueryDatabaseTable → PutHDFS)"]
         E[("HDFS<br/>Raw Zone<br/>JSON")]
     end
 
@@ -99,23 +101,25 @@ graph LR
         G["Xử lý NLP<br/>Tiếng Việt<br/>(Tokenization)"]
     end
 
-    subgraph "Tầng lưu trữ kết quả"
+    subgraph "Flow 2 - Lưu trữ kết quả"
         H[("HDFS<br/>Work Zone<br/>Parquet + CSV")]
-        I[("MySQL<br/>table_trending_words")]
+        SQOOP["Apache Sqoop<br/>Export CSV → MySQL"]
+        I[("MySQL<br/>trending_words")]
     end
 
     subgraph "Tầng trực quan hóa"
-        J["BIRT<br/>Báo cáo & Biểu đồ"]
+        J["Dashboard<br/>Báo cáo & Biểu đồ"]
     end
 
     A -->|"Định kỳ 30 phút"| B
     B -->|"Lưu bài viết"| C
-    C -->|"Xuất dữ liệu"| D
-    D -->|"Ghi dạng JSON"| E
+    C -->|"Flow 1: NiFi QueryDatabaseTable"| D
+    D -->|"Flow 1: NiFi PutHDFS"| E
     E -->|"Spark Submit"| F
     F -->|"Phân tích từ khóa"| G
     G -->|"Kết quả"| H
-    H -->|"ETL"| I
+    H -->|"Flow 2: Sqoop export"| SQOOP
+    SQOOP -->|"INSERT"| I
     I -->|"Truy vấn"| J
 ```
 
@@ -131,10 +135,12 @@ flowchart LR
         INGEST["FastAPI<br/>Ingestion Service"]
     end
 
-    subgraph G2["Lưu trữ thô"]
+    subgraph G2["Flow 1: MySQL → NiFi → HDFS"]
         direction TB
-        NIFI["Apache NiFi"]
+        MYSQL_SRC[("MySQL<br/>rss_ingest")]
+        NIFI["Apache NiFi<br/>QueryDatabaseTable<br/>→ PutHDFS"]
         HDFS_RAW[("HDFS<br/>Raw Zone")]
+        MYSQL_SRC --> NIFI --> HDFS_RAW
     end
 
     subgraph G3["Xử lý"]
@@ -146,36 +152,36 @@ flowchart LR
         SPARK_MASTER --> SPARK_WORKER2
     end
 
-    subgraph G4["Lưu trữ kết quả"]
+    subgraph G4["Flow 2: HDFS → Sqoop → MySQL"]
         direction TB
-        HDFS_WORK[("HDFS<br/>Work Zone")]
-        MYSQL_RESULT[("MySQL<br/>Trending Words")]
+        HDFS_WORK[("HDFS<br/>Work Zone<br/>CSV")]
+        SQOOP["Apache Sqoop<br/>Export"]
+        MYSQL_RESULT[("MySQL<br/>trending_words")]
+        HDFS_WORK --> SQOOP --> MYSQL_RESULT
     end
 
     subgraph G5["Trực quan hóa"]
         direction TB
-        BIRT["BIRT<br/>Reporting Engine"]
-        REPORT(("Báo cáo<br/>Biểu đồ"))
+        DASHBOARD["Dashboard<br/>Serving App"]
+        REPORT(("Biểu đồ"))
     end
 
     RSS -->|"HTTP GET"| INGEST
-    INGEST -->|"JDBC"| NIFI
-    NIFI -->|"PutHDFS"| HDFS_RAW
+    INGEST -->|"Lưu bài viết"| MYSQL_SRC
     HDFS_RAW -->|"spark-submit"| SPARK_MASTER
     SPARK_WORKER1 -->|"Ghi kết quả"| HDFS_WORK
     SPARK_WORKER2 -->|"Ghi kết quả"| HDFS_WORK
-    HDFS_WORK -->|"ETL"| MYSQL_RESULT
-    MYSQL_RESULT -->|"JDBC"| BIRT
-    BIRT --> REPORT
+    MYSQL_RESULT -->|"JDBC"| DASHBOARD
+    DASHBOARD --> REPORT
 ```
 
 ### 4.1. Giai đoạn Thu thập (Collection)
 
 Dữ liệu được thu thập định kỳ thông qua dịch vụ FastAPI sử dụng thư viện APScheduler với tần suất cấu hình được (mặc định 30 phút/lần). Thành phần RSSFetcher thực hiện truy vấn đến các luồng RSS, phân tích cấu trúc XML và trích xuất thông tin bài viết. Thành phần ContentCrawler có tùy chọn truy cập sâu vào nội dung HTML của bài viết gốc nhằm thu thập dữ liệu văn bản đầy đủ.
 
-### 4.2. Giai đoạn Lưu trữ thô (Raw Storage)
+### 4.2. Giai đoạn Lưu trữ thô - **Flow 1** (MySQL → NiFi → HDFS)
 
-Apache NiFi đóng vai trò trung gian kết nối giữa cơ sở dữ liệu MySQL quan hệ và hệ thống tệp phân tán HDFS. Dữ liệu từ MySQL được truy xuất thông qua trình điều khiển JDBC và được ghi xuống HDFS dưới dạng tệp JSON tại vùng `/raw_zone`. Dữ liệu tại giai đoạn này được tổ chức theo cấu trúc thư mục phân loại theo chủ đề nhằm thuận tiện cho quá trình xử lý về sau.
+Apache NiFi đóng vai trò trung gian kết nối giữa cơ sở dữ liệu MySQL và hệ thống tệp phân tán HDFS. NiFi sử dụng processor **QueryDatabaseTable** để đọc định kỳ các bài viết mới từ MySQL (thông qua JDBC), sau đó chuyển đổi sang JSON và ghi lên HDFS tại vùng `/raw_zone` qua processor **PutHDFS**. Dữ liệu được phân loại theo thư mục chủ đề (`giai_tri/`, `cong_nghe/`, `suc_khoe/`) để thuận tiện cho xử lý sau.
 
 ### 4.3. Giai đoạn Xử lý (Processing)
 
@@ -186,15 +192,17 @@ Apache Spark thực hiện tác vụ xử lý phân tán trên dữ liệu đã 
 
 Cả hai phương án đều thực hiện quy trình: đọc dữ liệu JSON từ ba thư mục chuyên biệt, làm sạch văn bản, tách từ, lọc từ dừng và tổng hợp tần suất xuất hiện của từ khóa theo các chiều thời gian, nguồn tin và chủ đề.
 
-### 4.4. Giai đoạn Lưu trữ kết quả (Result Storage)
+### 4.4. Giai đoạn Lưu trữ kết quả - **Flow 2** (HDFS → Sqoop → MySQL)
 
-Kết quả xử lý từ Spark được lưu trữ đồng thời tại hai nơi: HDFS `/work_zone` dưới dạng tệp Parquet và CSV phục vụ cho các truy vấn phân tích trực tiếp, và cơ sở dữ liệu MySQL thông qua bảng `table_trending_words` với cấu trúc:
+Kết quả xử lý từ Spark được lưu trữ trên HDFS `/work_zone` dưới dạng tệp Parquet và CSV. Sau đó, **Apache Sqoop** thực hiện export dữ liệu từ file CSV trên HDFS sang cơ sở dữ liệu MySQL thông qua bảng `trending_words` với cấu trúc:
 
 - `ngay`: Ngày thống kê (định dạng yyyyMMdd)
 - `nguon`: Nguồn tin
 - `chu_de`: Chủ đề
 - `tu_khoa`: Từ khóa
 - `so_lan_xuat_hien`: Số lần xuất hiện
+
+Sqoop sử dụng MapReduce để export song song từ HDFS vào MySQL, đảm bảo hiệu suất tốt với dữ liệu lớn.
 
 ### 4.5. Giai đoạn Trực quan hóa (Visualization)
 
@@ -206,13 +214,13 @@ Bảng dưới đây tổng hợp các công nghệ và phiên bản được s�
 
 | Công nghệ | Phiên bản | Vai trò |
 |---|---|---|
-| Apache Hadoop HDFS | 3.3.6 | Hệ thống tệp phân tán |
+| Apache Hadoop HDFS | 3.2.1 | Hệ thống tệp phân tán |
 | Apache Spark | 3.5.0 | Xử lý dữ liệu phân tán |
-| Apache NiFi | 1.25.0 | Tự động hóa luồng dữ liệu |
-| Apache Airflow | 2.8.1 | Điều phối quy trình xử lý |
+| Apache NiFi | 1.25.0 | **Flow 1**: MySQL → HDFS (DataFlow) |
+| Apache Sqoop | 1.4.7 | **Flow 2**: HDFS → MySQL (Export) |
 | FastAPI | 0.104.1 | Dịch vụ API thu thập dữ liệu |
 | MySQL | 8.0 | Cơ sở dữ liệu quan hệ |
 | PySpark | 3.5.0 | Xử lý Spark với Python |
 | pyvi | - | Tách từ tiếng Việt (Python) |
 | vnTokenizer | 4.1.1 | Tách từ tiếng Việt (Java/Scala) |
-| BIRT | - | Công cụ báo cáo và trực quan hóa |
+| Apache Superset | - | Dashboard trực quan hóa |

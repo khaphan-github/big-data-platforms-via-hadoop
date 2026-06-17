@@ -31,7 +31,7 @@ services:
       INGEST_INTERVAL_MINUTES: ${INGEST_INTERVAL_MINUTES:-1}
       MAX_RETRIES: ${MAX_RETRIES:-4}
       REQUEST_TIMEOUT_SECONDS: ${REQUEST_TIMEOUT_SECONDS:-10}
-      HDFS_ENABLED: ${HDFS_ENABLED:-true}
+      HDFS_ENABLED: ${HDFS_ENABLED:-false}  # NiFi handles MySQL→HDFS (Flow 1)
       HDFS_WEBHDFS_URL: ${HDFS_WEBHDFS_URL:-http://namenode:9870}
       HDFS_USER: ${HDFS_USER:-root}
       HDFS_ARTICLES_PATH: ${HDFS_ARTICLES_PATH:-/data/rss/articles}
@@ -151,6 +151,33 @@ services:
     restart: unless-stopped
     depends_on:
       - hive-metastore
+
+  sqoop:
+    build:
+      context: .
+      dockerfile: Dockerfile.sqoop
+    container_name: sqoop
+    hostname: sqoop
+    environment:
+      HADOOP_HOME: /opt/hadoop
+      HADOOP_MAPRED_HOME: /opt/hadoop
+      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      HDFS_URL: hdfs://namenode:9000
+      WORK_ZONE_PATH: /work_zone/table_trending_words_csv
+      TARGET_TABLE: trending_words
+    volumes:
+      - ./sqoop:/opt/sqoop-scripts
+    depends_on:
+      mysql:
+        condition: service_healthy
+      namenode:
+        condition: service_started
+    restart: "no"
 
   superset:
     build:

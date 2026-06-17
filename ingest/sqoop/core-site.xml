@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!-- Hadoop core-site.xml cho Sqoop container -->
+<!-- Trỏ tới HDFS NameNode trong cùng Docker network -->
+<configuration>
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://namenode:9000</value>
+        <description>URI của HDFS NameNode</description>
+    </property>
+    <property>
+        <name>dfs.client.use.datanode.hostname</name>
+        <value>true</value>
+        <description>Dùng hostname thay vì IP khi kết nối DataNode</description>
+    </property>
+</configuration>
