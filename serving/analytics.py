@@ -1,141 +1,169 @@
 from pathlib import Path
+import pandas as pd
+from sqlalchemy import text
+
+from db.database import engine
+
+import matplotlib
+matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
-import pandas as pd
-
-from db.database import get_db_connection
-
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 
 
-def _ensure_static_dir() -> None:
-	STATIC_DIR.mkdir(parents=True, exist_ok=True)
+def _ensure_static_dir():
+    STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def get_keywords_by_category() -> pd.DataFrame:
-	"""Lấy số lượng từ khóa theo chủ đề."""
-	conn = get_db_connection()
-	if conn is None:
-		return pd.DataFrame(columns=["chu_de", "so_luong_tu_khoa"])
+# ==========================================
+# QUERY LAYER
+# ==========================================
 
-	query = """
-	SELECT chu_de, COUNT(DISTINCT tu_khoa) AS so_luong_tu_khoa
-	FROM table_trending_words
-	GROUP BY chu_de;
-	"""
-	df = pd.read_sql(query, conn)
-	conn.close()
-	return df
+def get_articles_by_category():
+    query = """
+    SELECT
+        c.name AS category,
+        COUNT(a.id) AS total_articles
+    FROM categories c
+    LEFT JOIN articles a
+        ON a.category_id = c.id
+    GROUP BY c.id, c.name
+    ORDER BY total_articles DESC
+    """
 
-
-def plot_pie_chart_by_category() -> str:
-	"""Vẽ biểu đồ tròn số lượng từ khóa theo chủ đề."""
-	df = get_keywords_by_category()
-	_ensure_static_dir()
-	output_path = STATIC_DIR / "pie_chart_category.png"
-
-	if df.empty:
-		plt.figure(figsize=(8, 6))
-		plt.title("Số lượng từ khóa theo chủ đề")
-		plt.text(0.5, 0.5, "Khong co du lieu", ha="center", va="center")
-		plt.axis("off")
-		plt.savefig(output_path)
-		plt.close()
-		return str(output_path)
-
-	plt.figure(figsize=(8, 6))
-	plt.pie(df["so_luong_tu_khoa"], labels=df["chu_de"], autopct="%1.1f%%")
-	plt.title("Số lượng từ khóa theo chủ đề")
-	plt.savefig(output_path)
-	plt.close()
-	return str(output_path)
+    return pd.read_sql(text(query), engine)
 
 
-def get_top_20_keywords() -> pd.DataFrame:
-	"""Top 20 từ khóa xuất hiện nhiều nhất."""
-	conn = get_db_connection()
-	if conn is None:
-		return pd.DataFrame(columns=["tu_khoa", "tong_so_lan"])
+def get_top_20_articles():
+    query = """
+    SELECT
+        title,
+        published_date
+    FROM articles
+    ORDER BY published_date DESC
+    LIMIT 20
+    """
 
-	query = """
-	SELECT tu_khoa, SUM(so_lan_xuat_hien) AS tong_so_lan
-	FROM table_trending_words
-	GROUP BY tu_khoa
-	ORDER BY tong_so_lan DESC
-	LIMIT 20;
-	"""
-	df = pd.read_sql(query, conn)
-	conn.close()
-	return df
+    return pd.read_sql(text(query), engine)
 
 
-def plot_top_20_keywords() -> str:
-	"""Vẽ biểu đồ bar top 20 từ khóa."""
-	df = get_top_20_keywords()
-	_ensure_static_dir()
-	output_path = STATIC_DIR / "top_20_keywords.png"
+def get_top_10_by_category():
+    query = """
+    SELECT
+        c.name AS category,
+        a.title,
+        a.published_date
+    FROM articles a
+    JOIN categories c
+        ON c.id = a.category_id
+    ORDER BY c.name, a.published_date DESC
+    """
 
-	plt.figure(figsize=(14, 6))
-	if df.empty:
-		plt.title("Top 20 từ khóa trending (tất cả chủ đề)")
-		plt.text(0.5, 0.5, "Khong co du lieu", ha="center", va="center")
-		plt.axis("off")
-	else:
-		df = df.sort_values("tong_so_lan", ascending=True)
-		plt.barh(df["tu_khoa"], df["tong_so_lan"], color="steelblue")
-		plt.xlabel("Số lần xuất hiện")
-		plt.title("Top 20 từ khóa trending (tất cả chủ đề)")
-
-	plt.tight_layout()
-	plt.savefig(output_path)
-	plt.close()
-	return str(output_path)
+    return pd.read_sql(text(query), engine)
 
 
-def get_top_10_by_category() -> pd.DataFrame:
-	"""Top 10 từ khóa theo từng chủ đề."""
-	conn = get_db_connection()
-	if conn is None:
-		return pd.DataFrame(columns=["chu_de", "tu_khoa", "tong_so_lan"])
+# ==========================================
+# CHART LAYER
+# ==========================================
 
-	query = """
-	SELECT chu_de, tu_khoa, SUM(so_lan_xuat_hien) AS tong_so_lan
-	FROM table_trending_words
-	GROUP BY chu_de, tu_khoa
-	ORDER BY chu_de, tong_so_lan DESC;
-	"""
-	df = pd.read_sql(query, conn)
-	conn.close()
-	return df
+def plot_pie_chart_by_category():
+    df = get_articles_by_category()
+
+    _ensure_static_dir()
+    output_path = STATIC_DIR / "pie_chart_category.png"
+
+    plt.figure(figsize=(8, 6))
+
+    if df.empty:
+        plt.text(0.5, 0.5, "No data", ha="center", va="center")
+        plt.axis("off")
+    else:
+        plt.pie(
+            df["total_articles"],
+            labels=df["category"],
+            autopct="%1.1f%%"
+        )
+        plt.title("Articles by Category")
+
+    plt.savefig(output_path)
+    plt.close()
+
+    return str(output_path)
 
 
-def plot_top_10_by_category() -> str:
-	"""Vẽ 3 biểu đồ bar - 1 cho mỗi chủ đề."""
-	df = get_top_10_by_category()
-	_ensure_static_dir()
-	output_path = STATIC_DIR / "top_10_by_category.png"
-	categories = ["GiaiTri", "CongNghe", "SucKhoe"]
+def plot_top_20_articles():
+    df = get_top_20_articles()
 
-	fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    _ensure_static_dir()
+    output_path = STATIC_DIR / "top_20_articles.png"
 
-	for idx, cat in enumerate(categories):
-		ax = axes[idx]
-		cat_data = df[df["chu_de"] == cat]
+    plt.figure(figsize=(14, 8))
 
-		if cat_data.empty:
-			ax.set_title(f"Top 10 từ khóa - {cat}")
-			ax.text(0.5, 0.5, "Khong co du lieu", ha="center", va="center")
-			ax.axis("off")
-			continue
+    if df.empty:
+        plt.text(0.5, 0.5, "No data", ha="center", va="center")
+        plt.axis("off")
+    else:
+        df["rank"] = range(len(df), 0, -1)
 
-		cat_data = cat_data.nlargest(10, "tong_so_lan").sort_values("tong_so_lan", ascending=True)
-		ax.barh(cat_data["tu_khoa"], cat_data["tong_so_lan"], color="teal")
-		ax.set_title(f"Top 10 từ khóa - {cat}")
-		ax.set_xlabel("Số lần xuất hiện")
+        plt.barh(
+            df["title"].str.slice(0, 50),
+            df["rank"]
+        )
 
-	plt.tight_layout()
-	plt.savefig(output_path)
-	plt.close(fig)
-	return str(output_path)
+        plt.title("Top 20 Latest Articles")
+        plt.xlabel("Rank")
+
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+    return str(output_path)
+
+
+def plot_top_10_by_category():
+    df = get_top_10_by_category()
+
+    _ensure_static_dir()
+    output_path = STATIC_DIR / "top_10_by_category.png"
+
+    if df.empty:
+        plt.figure(figsize=(8, 6))
+        plt.text(0.5, 0.5, "No data", ha="center", va="center")
+        plt.axis("off")
+        plt.savefig(output_path)
+        plt.close()
+        return str(output_path)
+
+    categories = df["category"].unique()
+
+    fig, axes = plt.subplots(
+        len(categories),
+        1,
+        figsize=(12, 5 * len(categories))
+    )
+
+    if len(categories) == 1:
+        axes = [axes]
+
+    for ax, category in zip(axes, categories):
+
+        cat_df = (
+            df[df["category"] == category]
+            .head(10)
+            .copy()
+        )
+
+        ax.barh(
+            cat_df["title"].str.slice(0, 40),
+            range(len(cat_df))
+        )
+
+        ax.set_title(category)
+
+    plt.tight_layout()
+    plt.savefig(output_path)
+    plt.close()
+
+    return str(output_path)

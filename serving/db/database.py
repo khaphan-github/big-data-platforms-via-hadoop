@@ -1,17 +1,10 @@
-import mysql.connector
-from mysql.connector import Error
+from sqlalchemy import create_engine
 
-def get_db_connection():
-    """Kết nối MySQL"""
-    try:
-        connection = mysql.connector.connect(
-            host='localhost',
-            port=3306,
-            user='root',
-            password='password',
-            database='rss_ingest'
-        )
-        return connection
-    except Error as e:
-        print(f"Error: {e}")
-        return None
+DB_URL = "mysql+pymysql://root:rss_password@127.0.0.1:3308/rss_ingest"
+
+print("DATABASE_URL =", DB_URL)
+engine = create_engine(
+    DB_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600
+)

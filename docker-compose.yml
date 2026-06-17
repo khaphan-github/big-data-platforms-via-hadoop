@@ -208,17 +208,15 @@ services:
   # # MySQL Database
   mysql:
     image: cluster-mysql-8.0:latest
-    build:
-      context: ./cluster
-      dockerfile: images/Dockerfile.mysql
     container_name: mysql-db
     hostname: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-rss_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
-      - mysql-logs:/var/log/mysql
-      - ./cluster/config/my.cnf:/etc/mysql/my.cnf:ro
     networks:
       - hadoop-cluster
     healthcheck:
@@ -270,7 +268,7 @@ services:
 
   ingest-mysql:
     image: mysql:8.0
-    container_name: rss_mysql
+    container_name: mysql
     environment:
       - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD:-rss_password}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-rss_ingest}

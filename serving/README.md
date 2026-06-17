@@ -70,7 +70,7 @@ Truy cap:
 Sau khi goi API, anh se duoc luu trong `serving/static/`:
 
 - `pie_chart_category.png`
-- `top_20_keywords.png`
+- `top_20_articles.png`
 - `top_10_by_category.png`
 
 ### 5) Luu y ket noi database
