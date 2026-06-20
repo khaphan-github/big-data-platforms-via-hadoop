@@ -31,7 +31,7 @@ services:
       - hadoop-cluster
 
     restart: unless-stopped
-    
+
   # HDFS Cluster
   namenode:
     image: cluster-hadoop-3.3.6:namenode
@@ -44,17 +44,25 @@ services:
     ports:
       - "9870:9870"
       - "9000:9000"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /tmp/hadoop-conf
+        cp /opt/hadoop/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/hadoop/conf-override/hdfs-site.xml /tmp/hadoop-conf/
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec /opt/hadoop/scripts/entrypoint.sh
     volumes:
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/hadoop/conf-override:ro
     networks:
       - hadoop-cluster
     healthcheck:
-      test: ["CMD", "hdfs", "dfsadmin", "-report"]
-      interval: 10s
+      test: [ "CMD", "curl", "-f", "http://localhost:9870" ]
+      interval: 20s
       timeout: 10s
-      retries: 3
-      start_period: 10s
+      retries: 5
+      start_period: 120s
 
   datanode1:
     image: cluster-hadoop-3.3.6:datanode
@@ -66,10 +74,22 @@ services:
     container_name: hadoop-datanode1
     ports:
       - "9864:9864"
+    user: root
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /var/log/hadoop-hdfs /var/log/hadoop-yarn /var/log/hadoop
+        chown -R hadoop:hadoop /var/log/hadoop*
+        mkdir -p /tmp/hadoop-conf
+        cp /opt/hadoop/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/hadoop/conf-override/hdfs-site-datanode1.xml /tmp/hadoop-conf/hdfs-site.xml
+        chown -R hadoop:hadoop /tmp/hadoop-conf
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec su -s /bin/bash hadoop -c "export PATH=\"$$PATH\" && export JAVA_HOME=\"$$JAVA_HOME\" && export HADOOP_HOME=\"$$HADOOP_HOME\" && export HADOOP_CONF_DIR=/tmp/hadoop-conf && /opt/hadoop/scripts/entrypoint.sh"
     volumes:
       - datanode1-data:/var/lib/hadoop-hdfs/cache/dfs/data
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site-datanode1.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/hadoop/conf-override:ro
     depends_on:
       namenode:
         condition: service_healthy
@@ -86,10 +106,22 @@ services:
     container_name: hadoop-datanode2
     ports:
       - "9865:9865"
+    user: root
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /var/log/hadoop-hdfs /var/log/hadoop-yarn /var/log/hadoop
+        chown -R hadoop:hadoop /var/log/hadoop*
+        mkdir -p /tmp/hadoop-conf
+        cp /opt/hadoop/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/hadoop/conf-override/hdfs-site-datanode2.xml /tmp/hadoop-conf/hdfs-site.xml
+        chown -R hadoop:hadoop /tmp/hadoop-conf
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec su -s /bin/bash hadoop -c "export PATH=\"$$PATH\" && export JAVA_HOME=\"$$JAVA_HOME\" && export HADOOP_HOME=\"$$HADOOP_HOME\" && export HADOOP_CONF_DIR=/tmp/hadoop-conf && /opt/hadoop/scripts/entrypoint.sh"
     volumes:
       - datanode2-data:/var/lib/hadoop-hdfs/cache/dfs/data
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site-datanode2.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/hadoop/conf-override:ro
     depends_on:
       namenode:
         condition: service_healthy
@@ -118,13 +150,22 @@ services:
       - "7077:7077"
       - "8080:8080"
       - "4040:4040"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /tmp/spark-conf /tmp/hadoop-conf
+        cp /opt/spark/conf-override/spark-env.sh /tmp/spark-conf/
+        cp /opt/spark/conf-override/spark-defaults.conf /tmp/spark-conf/
+        cp /opt/spark/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/spark/conf-override/hdfs-site.xml /tmp/hadoop-conf/
+        export SPARK_CONF_DIR=/tmp/spark-conf
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec /opt/spark/scripts/entrypoint.sh
     volumes:
       - spark-master-work:/var/lib/spark/work
       - spark-master-logs:/var/log/spark
-      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/spark/conf-override:ro
     depends_on:
       namenode:
         condition: service_healthy
@@ -133,11 +174,11 @@ services:
     networks:
       - hadoop-cluster
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
       interval: 5s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 60s
 
   spark-worker1:
     image: cluster-spark-3.5.0:worker
@@ -160,13 +201,22 @@ services:
         limits:
           memory: 8g
           cpus: "1"
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /tmp/spark-conf /tmp/hadoop-conf
+        cp /opt/spark/conf-override/spark-env.sh /tmp/spark-conf/
+        cp /opt/spark/conf-override/spark-defaults.conf /tmp/spark-conf/
+        cp /opt/spark/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/spark/conf-override/hdfs-site.xml /tmp/hadoop-conf/
+        export SPARK_CONF_DIR=/tmp/spark-conf
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec /opt/spark/scripts/entrypoint.sh
     volumes:
       - spark-worker1-work:/var/lib/spark/work
       - spark-worker1-logs:/var/log/spark
-      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/spark/conf-override:ro
     depends_on:
       spark-master:
         condition: service_healthy
@@ -187,13 +237,22 @@ services:
     environment:
       - SPARK_WORKER_WEBUI_PORT=8082
       - SPARK_PUBLIC_DNS=localhost
+    entrypoint:
+      - bash
+      - -c
+      - |
+        mkdir -p /tmp/spark-conf /tmp/hadoop-conf
+        cp /opt/spark/conf-override/spark-env.sh /tmp/spark-conf/
+        cp /opt/spark/conf-override/spark-defaults.conf /tmp/spark-conf/
+        cp /opt/spark/conf-override/core-site.xml /tmp/hadoop-conf/
+        cp /opt/spark/conf-override/hdfs-site.xml /tmp/hadoop-conf/
+        export SPARK_CONF_DIR=/tmp/spark-conf
+        export HADOOP_CONF_DIR=/tmp/hadoop-conf
+        exec /opt/spark/scripts/entrypoint.sh
     volumes:
       - spark-worker2-work:/var/lib/spark/work
       - spark-worker2-logs:/var/log/spark
-      - ./cluster/config/spark-env.sh:/opt/spark/conf/spark-env.sh:ro
-      - ./cluster/config/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
-      - ./cluster/config/core-site.xml:/opt/hadoop/etc/hadoop/core-site.xml:ro
-      - ./cluster/config/hdfs-site.xml:/opt/hadoop/etc/hadoop/hdfs-site.xml:ro
+      - ./cluster/config:/opt/spark/conf-override:ro
     depends_on:
       spark-master:
         condition: service_healthy
@@ -224,7 +283,7 @@ services:
     networks:
       - hadoop-cluster
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8161/nifi"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8161/nifi" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -245,18 +304,7 @@ services:
     networks:
       - hadoop-cluster
     healthcheck:
-      test:
-        [
-          "CMD",
-          "/opt/mysql/bin/mysqladmin",
-          "ping",
-          "-h",
-          "127.0.0.1",
-          "-P",
-          "3306",
-          "-u",
-          "root",
-        ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -302,12 +350,41 @@ services:
     volumes:
       - ingest-mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       timeout: 20s
       retries: 10
     restart: unless-stopped
     networks:
       - hadoop-cluster
+
+  sqoop:
+    build:
+      context: ./ingest
+      dockerfile: Dockerfile.sqoop
+    container_name: sqoop
+    hostname: sqoop
+    environment:
+      HADOOP_HOME: /opt/hadoop
+      HADOOP_MAPRED_HOME: /opt/hadoop
+      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_USER: ${MYSQL_USER:-root}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-rss_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-rss_ingest}
+      HDFS_URL: hdfs://namenode:9000
+      WORK_ZONE_PATH: /work_zone/table_trending_words_csv
+      TARGET_TABLE: trending_words
+    volumes:
+      - ./ingest/sqoop:/opt/sqoop-scripts
+    depends_on:
+      mysql:
+        condition: service_healthy
+      namenode:
+        condition: service_started
+    networks:
+      - hadoop-cluster
+    restart: "no"
 
 # Volumes (persistent storage)
 volumes:
@@ -326,7 +403,7 @@ volumes:
   mysql-logs:
   ingest-mysql-data:
 
-# Network
+    # Network
 networks:
   hadoop-cluster:
     driver: bridge

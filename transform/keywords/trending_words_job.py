@@ -2,11 +2,14 @@
 Spark Job: Extract Trending Words from Articles
 Reads raw article data from HDFS by category, processes it, and outputs trending keywords
 """
+# pyrefly: ignore [missing-import]
 from pyspark.sql import SparkSession
+# pyrefly: ignore [missing-import]
 from pyspark.sql.functions import (
     col, explode, regexp_replace, count, desc, 
     to_date, date_format, udf, concat_ws, lit
 )
+# pyrefly: ignore [missing-import]
 from pyspark.sql.types import ArrayType, StringType
 import os
 import sys
@@ -70,6 +73,7 @@ class TrendingWordsSparkJob:
                 raise Exception("No data could be read!")
             
             from functools import reduce
+            # pyrefly: ignore [missing-import]
             from pyspark.sql import DataFrame
             df = reduce(DataFrame.unionByName, dfs)
             print(f"Loaded {df.count()} records")
@@ -128,15 +132,15 @@ class TrendingWordsSparkJob:
 def main():
     """Main entry point"""
     # Default paths (configurable via arguments)
-    hdfs_base = os.getenv("HDFS_BASE_PATH", "hdfs://localhost:9870/raw_zone")
-    hdfs_output = os.getenv("HDFS_OUTPUT_PATH", "hdfs://localhost:9870/work_zone/table_trending_words")
+    hdfs_base = os.getenv("HDFS_BASE_PATH", "hdfs://namenode:9000/raw_zone")
+    hdfs_output = os.getenv("HDFS_OUTPUT_PATH", "hdfs://namenode:9000/work_zone/table_trending_words")
     
     # Allow override via command line arguments
     if len(sys.argv) > 1:
         hdfs_base = sys.argv[1]
     if len(sys.argv) > 2:
         hdfs_output = sys.argv[2]
-    
+        
     job = TrendingWordsSparkJob(hdfs_base, hdfs_output)
     job.run()
 
