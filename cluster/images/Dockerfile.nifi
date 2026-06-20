@@ -1,12 +1,8 @@
 FROM ubuntu:20.04
 
-ARG TARGETARCH=arm64
-
 ENV DEBIAN_FRONTEND=noninteractive \
-    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-${TARGETARCH} \
     NIFI_HOME=/opt/nifi \
-    NIFI_VERSION=1.25.0 \
-    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-${TARGETARCH}/bin:/opt/nifi/bin
+    NIFI_VERSION=1.25.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-11-jdk-headless \
@@ -14,6 +10,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# Detect JAVA_HOME from actual installed JDK path
+RUN JAVA_HOME=$(ls -d /usr/lib/jvm/java-11-openjdk-* | head -1) && \
+    echo "Detected JAVA_HOME=$JAVA_HOME" && \
+    echo "$JAVA_HOME" > /opt/java_home
+
+ENV PATH=/opt/nifi/bin:$PATH
 
 # Create NiFi user
 RUN groupadd -r nifi && useradd -r -g nifi nifi
@@ -51,4 +54,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=40s \
     CMD curl -f http://localhost:8161/nifi/ || exit 1
 
 # Start NiFi and keep container running by tailing logs
-CMD ["/bin/bash", "-c", "/opt/nifi-1.25.0/bin/nifi.sh start && sleep 2 && tail -f /opt/nifi-1.25.0/logs/nifi-app.log"]
+CMD ["/bin/bash", "-c", "export JAVA_HOME=$(cat /opt/java_home) && /opt/nifi-1.25.0/bin/nifi.sh start && sleep 2 && tail -f /opt/nifi-1.25.0/logs/nifi-app.log"]
