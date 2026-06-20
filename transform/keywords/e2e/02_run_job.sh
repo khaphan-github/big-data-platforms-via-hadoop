@@ -23,7 +23,7 @@ docker exec "$SPARK_CONTAINER" python3 -m zipfile -c "$REMOTE_PYFILES" "$REMOTE_
 
 echo "[INFO] Running Spark job"
 docker exec -e HDFS_BASE_PATH="$HDFS_BASE_URI" -e HDFS_OUTPUT_PATH="$HDFS_OUTPUT_URI" -e PYTHONPATH="$REMOTE_WORKDIR" "$SPARK_CONTAINER" \
-  spark-submit \
+  /opt/spark/bin/spark-submit \
     --master spark://spark-master:7077 \
     --deploy-mode client \
     --py-files "$REMOTE_PYFILES" \
