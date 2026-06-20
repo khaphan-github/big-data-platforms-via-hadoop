@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trending Keywords Analytics</title>
+
+<style>
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:Inter,Segoe UI,sans-serif;
+  background:#f1f5f9;
+  color:#0f172a;
+}
+
+.container{
+  width:100%;
+  min-height:100vh;
+  padding:30px;
+}
+
+.header{
+  text-align:center;
+  margin-bottom:30px;
+}
+
+.header h1{
+  font-size:32px;
+  margin-bottom:8px;
+}
+
+.header p{
+  color:#64748b;
+}
+
+.tabs{
+  display:flex;
+  justify-content:center;
+  gap:12px;
+  margin-bottom:25px;
+  flex-wrap:wrap;
+}
+
+.tab-btn{
+  border:none;
+  cursor:pointer;
+  padding:12px 24px;
+  border-radius:12px;
+  font-weight:600;
+  background:white;
+  color:#334155;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  transition:.2s;
+}
+
+.tab-btn:hover{
+  transform:translateY(-2px);
+}
+
+.tab-btn.active{
+  background:#0ea5e9;
+  color:white;
+}
+
+.chart-wrapper{
+  display:flex;
+  justify-content:center;
+}
+
+.chart-card{
+  width:85vw;
+  min-height:75vh;
+  background:white;
+  border-radius:20px;
+  padding:24px;
+  box-shadow:0 10px 30px rgba(0,0,0,.08);
+}
+
+.chart-header{
+  margin-bottom:20px;
+}
+
+.chart-header h2{
+  font-size:24px;
+}
+
+.status{
+  margin-top:8px;
+  color:#64748b;
+}
+
+.chart-container{
+  height:calc(75vh - 80px);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+.chart-container img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+/* Chỉ phóng to tab Top 10 Theo Chủ Đề */
+#top10.chart-card{
+  width:95vw;
+  min-height:85vh;
+}
+
+#top10 .chart-container{
+  height:auto;
+  min-height:75vh;
+  align-items:flex-start;
+  overflow-y:auto;
+}
+
+#top10 img{
+  width:100%;
+  height:auto;
+  max-height:none;
+  object-fit:contain;
+}
+
+.loading{
+  color:#0ea5e9;
+  font-weight:600;
+}
+
+.hidden{
+  display:none;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <h1>Trending Keywords Analytics</h1>
+    <p>Phân tích xu hướng từ khóa theo nhiều góc nhìn</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showChart('pie', this)">
+      Pie Chart
+    </button>
+
+    <button class="tab-btn" onclick="showChart('top20', this)">
+      Top 20 Keywords
+    </button>
+
+    <button class="tab-btn" onclick="showChart('top10', this)">
+      Top 10 Theo Chủ Đề
+    </button>
+  </div>
+
+  <div class="chart-wrapper">
+
+    <div id="pie" class="chart-card">
+      <div class="chart-header">
+        <h2>Pie Chart Theo Chủ Đề</h2>
+        <div id="status-pie" class="status"></div>
+      </div>
+
+      <div class="chart-container">
+        <img id="img-pie" alt="Pie Chart Theo Chủ Đề">
+      </div>
+    </div>
+
+    <div id="top20" class="chart-card hidden">
+      <div class="chart-header">
+        <h2>Top 20 Từ Khóa</h2>
+        <div id="status-top20" class="status"></div>
+      </div>
+
+      <div class="chart-container">
+        <img id="img-top20" alt="Top 20 Từ Khóa">
+      </div>
+    </div>
+
+    <div id="top10" class="chart-card hidden">
+      <div class="chart-header">
+        <h2>Top 10 Theo Chủ Đề</h2>
+        <div id="status-top10" class="status"></div>
+      </div>
+
+      <div class="chart-container">
+        <img id="img-top10" alt="Top 10 Theo Chủ Đề">
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+const charts = {
+  pie: "/api/charts/pie",
+  top20: "/api/charts/top20",
+  top10: "/api/charts/top10"
+};
+
+const loaded = {};
+
+async function showChart(tabName, buttonEl){
+  document
+    .querySelectorAll('.chart-card')
+    .forEach(el => el.classList.add('hidden'));
+
+  document
+    .getElementById(tabName)
+    .classList.remove('hidden');
+
+  document
+    .querySelectorAll('.tab-btn')
+    .forEach(btn => btn.classList.remove('active'));
+
+  if(buttonEl){
+    buttonEl.classList.add('active');
+  }
+
+  if(loaded[tabName]) return;
+
+  await loadChart(
+    charts[tabName],
+    `img-${tabName}`,
+    `status-${tabName}`
+  );
+
+  loaded[tabName] = true;
+}
+
+async function loadChart(apiUrl, imgId, statusId){
+  const status = document.getElementById(statusId);
+  const img = document.getElementById(imgId);
+
+  status.innerHTML =
+    '<span class="loading">⏳ Đang tạo biểu đồ...</span>';
+
+  try{
+    const response = await fetch(apiUrl);
+
+    if(!response.ok){
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    img.src = data.url + '?t=' + Date.now();
+    status.innerHTML = data.message;
+  }
+  catch(error){
+    status.innerHTML = 'Lỗi: ' + error.message;
+  }
+}
+
+showChart('pie', document.querySelector('.tab-btn.active'));
+</script>
+
+</body>
+</html>

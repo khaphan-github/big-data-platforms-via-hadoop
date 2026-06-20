@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report xmlns="http://www.eclipse.org/birt/2005/design" version="3.2.23" id="1">
+  <property name="createdBy">Gemini CLI</property>
+  <property name="units">in</property>
+  <data-sources>
+    <oda-data-source extensionID="org.eclipse.birt.report.data.oda.jdbc" name="MySQLDataSource" id="2">
+      <property name="odaDriverClass">com.mysql.cj.jdbc.Driver</property>
+      <property name="odaURL">jdbc:mysql://mysql:3306/rss_ingest?useSSL=false&amp;serverTimezone=UTC</property>
+      <property name="odaUser">root</property>
+      <property name="odaPassword">rss_password</property>
+    </oda-data-source>
+  </data-sources>
+  <data-sets>
+    <oda-data-set extensionID="org.eclipse.birt.report.data.oda.jdbc" name="Top20Keywords" id="3">
+      <property name="dataSource">MySQLDataSource</property>
+      <property name="queryText">SELECT tu_khoa, SUM(so_lan_xuat_hien) AS total_occurrences FROM trending_words GROUP BY tu_khoa ORDER BY total_occurrences DESC LIMIT 20</property>
+      <structure name="cachedMetaData">
+        <property name="resultSetItemCount">2</property>
+        <result-set-column name="tu_khoa" position="1" dataType="string"/>
+        <result-set-column name="total_occurrences" position="2" dataType="integer"/>
+      </structure>
+    </oda-data-set>
+  </data-sets>
+  <body>
+    <graphic-element xsi:type="chart" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="4">
+      <property name="top">0.0in</property>
+      <property name="left">0.0in</property>
+      <property name="width">8.0in</property>
+      <property name="height">5.0in</property>
+      <property name="data-set">Top20Keywords</property>
+      <property name="title">Top 20 Most Frequent Keywords</property>
+      <property name="type">Bar</property>
+      <property name="subtype">SideBySide</property>
+      <property name="category-series">
+        <property name="data-set-column">tu_khoa</property>
+      </property>
+      <property name="value-series">
+        <property name="data-set-column">total_occurrences</property>
+      </property>
+    </graphic-element>
+  </body>
+</report>

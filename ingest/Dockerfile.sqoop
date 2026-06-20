@@ -1,0 +1,52 @@
+FROM ubuntu:20.04
+
+LABEL description="Sqoop 1.4.7 for HDFS → MySQL export (Flow 2)"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 \
+    HADOOP_HOME=/opt/hadoop \
+    HADOOP_VERSION=3.2.1 \
+    SQOOP_HOME=/opt/sqoop \
+    SQOOP_VERSION=1.4.7 \
+    PATH=$PATH:/usr/lib/jvm/java-8-openjdk-amd64/bin:/opt/hadoop/bin:/opt/sqoop/bin
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openjdk-8-jdk-headless \
+    ca-certificates \
+    curl \
+    wget \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download Hadoop client (tương thích với bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8)
+RUN curl -fSL "https://archive.apache.org/dist/hadoop/common/hadoop-3.2.1/hadoop-3.2.1.tar.gz" \
+        -o /tmp/hadoop.tar.gz && \
+    mkdir -p /opt && \
+    tar -xzf /tmp/hadoop.tar.gz -C /opt && \
+    ln -s /opt/hadoop-3.2.1 /opt/hadoop && \
+    rm -f /tmp/hadoop.tar.gz
+
+# Download Sqoop 1.4.7
+RUN curl -fSL "https://archive.apache.org/dist/sqoop/${SQOOP_VERSION}/sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0.tar.gz" \
+        -o /tmp/sqoop.tar.gz && \
+    mkdir -p /opt && \
+    tar -xzf /tmp/sqoop.tar.gz -C /opt && \
+    ln -s /opt/sqoop-${SQOOP_VERSION}.bin__hadoop-2.6.0 /opt/sqoop && \
+    rm -f /tmp/sqoop.tar.gz
+
+# Download MySQL Connector/J for Sqoop
+RUN curl -fSL "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar" \
+        -o /opt/sqoop/lib/mysql-connector-j-8.4.0.jar
+
+# Tạo thư mục scripts
+RUN mkdir -p /opt/sqoop-scripts
+
+# Copy export script
+COPY sqoop/export_trending_words.sh /opt/sqoop-scripts/export_trending_words.sh
+RUN chmod +x /opt/sqoop-scripts/export_trending_words.sh
+
+# Cấu hình Hadoop để Sqoop kết nối được HDFS
+COPY sqoop/core-site.xml /opt/hadoop/etc/hadoop/core-site.xml
+
+# Keep container running (Sqoop chạy on-demand)
+CMD ["/bin/bash", "-c", "echo 'Sqoop container ready. Run: docker exec sqoop /opt/sqoop-scripts/export_trending_words.sh' && tail -f /dev/null"]

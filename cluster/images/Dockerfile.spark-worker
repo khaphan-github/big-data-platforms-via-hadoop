@@ -1,0 +1,41 @@
+# Dockerfile for Spark Worker
+# Inherits from Dockerfile.spark-base
+# Role: Spark Worker (executor node)
+
+ARG SPARK_BASE_IMAGE=spark:base
+
+FROM ${SPARK_BASE_IMAGE}
+
+LABEL role="spark-worker" \
+      description="Apache Spark 3.5.0 Worker - Executor Node"
+
+USER root
+
+# Copy Spark Worker-specific entrypoint
+COPY scripts/entrypoint-spark-worker.sh /opt/spark/scripts/entrypoint.sh
+
+# Copy configuration files
+COPY config/spark-env.sh /opt/spark/conf/spark-env.sh
+COPY config/spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
+# Make scripts executable
+RUN chmod +x /opt/spark/scripts/*.sh && \
+    chown -R spark:spark /opt/spark /opt/spark-3.5.0-bin-hadoop3 /opt/spark/conf
+
+# Create Spark Worker work directory
+RUN mkdir -p /var/lib/spark/work && \
+    chown spark:spark /var/lib/spark/work
+
+USER spark
+
+# Expose Spark Worker ports
+# 8081: Worker Web UI
+# 4040: Executor Web UI
+EXPOSE 8081 4040 22 7078
+
+# Healthcheck: verify Spark Worker is responding
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:8081 || exit 1
+
+# Set entrypoint
+ENTRYPOINT ["/opt/spark/scripts/entrypoint.sh"]
