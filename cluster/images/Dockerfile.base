@@ -1,12 +1,10 @@
 FROM ubuntu:20.04
 
-ARG TARGETARCH=arm64
-
 ENV DEBIAN_FRONTEND=noninteractive \
-    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-${TARGETARCH} \
+    JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64 \
     HADOOP_HOME=/opt/hadoop \
     HADOOP_VERSION=3.3.6 \
-    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-${TARGETARCH}/bin:/opt/hadoop/bin:/opt/hadoop/sbin
+    PATH=$PATH:/usr/lib/jvm/java-11-openjdk-amd64/bin:/opt/hadoop/bin:/opt/hadoop/sbin
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openjdk-11-jdk-headless \
@@ -20,7 +18,7 @@ COPY config/hdfs-site.xml /tmp/hdfs-site.xml
 
 RUN groupadd -r hadoop && useradd -r -g hadoop hadoop
 
-RUN curl -fSL "https://archive.apache.org/dist/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz" -o /tmp/hadoop-3.3.6.tar.gz && \
+RUN test -f /tmp/hadoop-3.3.6.tar.gz && \
     mkdir -p /opt && \
     tar -xzf /tmp/hadoop-3.3.6.tar.gz -C /opt && \
     test -x /opt/hadoop-3.3.6/bin/hadoop && \

@@ -24,7 +24,7 @@ RUN mkdir -p /var/lib/hadoop-hdfs/cache/dfs/name && \
 
 USER hadoop
 
-EXPOSE 9870 9000
+EXPOSE 9870
 
 # Set entrypoint
 ENTRYPOINT ["/opt/hadoop/scripts/entrypoint.sh"]
