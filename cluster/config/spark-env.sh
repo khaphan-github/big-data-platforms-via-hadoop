@@ -2,17 +2,7 @@
 
 # Minimal env for Spark Standalone + HDFS
 export SPARK_MASTER_HOST=spark-master
-case "$(uname -s):$(uname -m)" in
-  Darwin:*)
-    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
-    ;;
-  Linux:x86_64|Linux:amd64)
-    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-    ;;
-  *)
-    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-arm64
-    ;;
-esac
+export JAVA_HOME=/opt/java/openjdk
 
 export HADOOP_CONF_DIR=/opt/hadoop/etc/hadoop
 export HADOOP_HOME=/opt/hadoop
