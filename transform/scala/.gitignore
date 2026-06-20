@@ -21,6 +21,7 @@ project/project/target/
 # Assembly / fat JAR
 *.jar
 !libs/**/*.jar
+!scala-assembly.jar
 
 # OS
 .DS_Store

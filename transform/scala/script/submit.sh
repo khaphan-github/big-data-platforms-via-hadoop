@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 sbt clean assembly
-docker cp target/scala-assembly.jar spark-master:/tmp/scala-assembly.jar
+docker cp scala-assembly.jar spark-master:/tmp/scala-assembly.jar
 docker cp libs/vntokenizer4.1/models spark-master:/tmp/vnlp-models
 docker exec spark-master /opt/spark/bin/spark-submit \
   --master spark://spark-master:7077 \
