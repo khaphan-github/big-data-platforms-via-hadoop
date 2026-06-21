@@ -16,8 +16,8 @@ libraryDependencies ++= Seq(
   "javax.xml.bind" % "jaxb-api" % "2.3.1",
   "com.sun.xml.bind" % "jaxb-core" % "2.3.0.1",
   "com.sun.xml.bind" % "jaxb-impl" % "2.3.1",
-  "org.apache.spark" %% "spark-sql" % "3.5.0",
-  "org.apache.spark" %% "spark-core" % "3.5.0"
+  "org.apache.spark" %% "spark-sql" % "3.5.0" % "provided",
+  "org.apache.spark" %% "spark-core" % "3.5.0" % "provided"
 )
 
 // Assembly plugin for single fat JAR
@@ -27,5 +27,5 @@ assembly / assemblyMergeStrategy := {
   case x => MergeStrategy.first
 }
 
-assembly / assemblyOutputPath := target.value / "scala-assembly.jar"
+assembly / assemblyOutputPath := baseDirectory.value / "scala-assembly.jar"
 assembly / mainClass := Some("Main")
