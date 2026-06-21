@@ -19,8 +19,6 @@ project/project/target/
 *.tasty
 
 # Assembly / fat JAR
-*.jar
-!libs/**/*.jar
 !scala-assembly.jar
 
 # OS

@@ -27,5 +27,6 @@ assembly / assemblyMergeStrategy := {
   case x => MergeStrategy.first
 }
 
-assembly / assemblyOutputPath := baseDirectory.value / "scala-assembly.jar"
+val jarName = "transform-keyword-version-10-56-21-06-2026"
+assembly / assemblyOutputPath := baseDirectory.value / s"$jarName.jar"
 assembly / mainClass := Some("Main")

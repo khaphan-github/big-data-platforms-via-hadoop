@@ -1,4 +1,5 @@
 import java.util.Properties
+import scala.io.{Codec, Source}
 
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.types._
@@ -8,6 +9,16 @@ object Main {
   private val DEFAULT_HDFS_BASE  = "hdfs://namenode:9000/raw_zone"
   private val DEFAULT_MODELS_DIR = "/tmp/vnlp-models"
   private val DEFAULT_OUTPUT     = "hdfs://namenode:9000/work_zone/table_trending_words_csv"
+
+  private lazy val stopWords: Set[String] = {
+    val is = getClass.getResourceAsStream("/stopwords_vi.txt")
+    if (is == null) {
+      println("[WARN] stopwords_vi.txt not found on classpath")
+      Set.empty
+    } else {
+      Source.fromInputStream(is)(Codec.UTF8).getLines().map(_.trim.toLowerCase).filter(_.nonEmpty).toSet
+    }
+  }
 
   def buildTokenizer(modelsDir: String): VietTokenizer = {
     val props = new Properties()
@@ -71,8 +82,9 @@ object Main {
             tokenizer.segment(content)
               .split("\\s+")
               .filter(_.nonEmpty)
-              .foreach { token =>
-                val cleanToken = token.replace("_", " ").trim
+              .map(_.replace("_", " ").trim.toLowerCase)
+              .filterNot(stopWords.contains)
+              .foreach { cleanToken =>
                 val key = (ngay, nguon, chuDe, cleanToken)
                 tokenCounts(key) = tokenCounts.getOrElse(key, 0L) + 1L
               }
@@ -82,6 +94,7 @@ object Main {
       } catch {
         case e: Exception =>
           println(s"[WARN] Failed to process $folder: ${e.getMessage}")
+          e.printStackTrace()
       }
     }
 
