@@ -20,6 +20,16 @@ object Main {
     }
   }
 
+  /** Convert any publish_date format to yyyyMMdd.
+   *  Handles: "2026-06-23 10:58:00.0" → "20260623"
+   *            "20260531"              → "20260531"
+   */
+  def formatDate(raw: String): String = {
+    if (raw == null || raw.isEmpty) ""
+    else if (raw.matches("\\d{8}")) raw
+    else raw.take(10).replaceAll("-", "")
+  }
+
   def buildTokenizer(modelsDir: String): VietTokenizer = {
     val props = new Properties()
     props.setProperty("sentDetectionModel", s"$modelsDir/sentDetection/VietnameseSD.bin.gz")
@@ -63,19 +73,30 @@ object Main {
 
     val categories = Seq("giai_tri", "cong_nghe", "suc_khoe")
     categories.foreach { folder =>
-      val path = s"$hdfsBase/$folder/articles.json"
+      val path = s"$hdfsBase/$folder/*"
       try {
-        val rows = spark.read
-          .option("mode", "PERMISSIVE")
-          .option("multiline", "true")
-          .json(path)
-          .select("publish_date", "source", "category", "content")
-          .collect()
+        // We must ensure the columns exist before selecting them, or select them safely.
+        // Let's check the schema. If "category" doesn't exist, we can create a dummy column or just select what exists.
+        val df = spark.read.option("multiline", "true").json(path)
+        val columns = df.columns
+        val selectedDf = if (columns.contains("category")) {
+          df.select("publish_date", "source", "category", "content")
+        } else {
+          // If category doesn't exist, select content and others, and create an empty string for category
+          import org.apache.spark.sql.functions.lit
+          df.select(
+            df("publish_date"),
+            df("source"),
+            lit("").alias("category"),
+            df("content")
+          )
+        }
+        val rows = selectedDf.collect()
 
         rows.foreach { row =>
-          val ngay    = str(row, 0)
+          val ngay    = formatDate(str(row, 0))
           val nguon   = str(row, 1)
-          val chuDe   = str(row, 2)
+          val chuDe   = { val c = str(row, 2); if (c.nonEmpty) c else folder }
           val content = str(row, 3)
 
           if (content.nonEmpty) {
@@ -106,7 +127,7 @@ object Main {
       spark.sparkContext.parallelize(resultRows),
       schema
     )
-    resultDF.coalesce(1).write.mode("overwrite").option("header", "true").csv(outputPath)
+    resultDF.coalesce(1).write.mode("overwrite").option("header", "true").option("sep", "\t").csv(outputPath)
     println(s"Written ${resultRows.size} rows to: $outputPath")
 
     spark.stop()

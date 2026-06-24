@@ -84,29 +84,22 @@ else
     exit 1
 fi
 
-# ---- Tạo ORM Class từ schema với thứ tự cột mong muốn ----
-echo "[5/5] Khởi tạo và biên dịch ORM Class với thứ tự cột đúng..."
-sqoop codegen \
-    --connect "jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true" \
-    --username "${MYSQL_USER}" \
-    --password "${MYSQL_PASSWORD}" \
-    --query "SELECT ngay, nguon, chu_de, tu_khoa, so_lan_xuat_hien FROM ${TARGET_TABLE} WHERE \$CONDITIONS" \
-    --class-name trending_words_query \
-    --bindir /opt/sqoop/lib
 
 # ---- Chạy Sqoop export ----
-echo "Bắt đầu chạy Sqoop export: HDFS → MySQL..."
+echo "[5/5] Bắt đầu chạy Sqoop export: HDFS → MySQL..."
 sqoop export \
     --connect "jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true" \
     --username "${MYSQL_USER}" \
     --password "${MYSQL_PASSWORD}" \
     --table "${TARGET_TABLE}" \
-    --class-name trending_words_query \
     --export-dir "${WORK_ZONE_PATH}" \
-    --input-fields-terminated-by ',' \
+    --bindir /opt/sqoop/lib \
+    --input-fields-terminated-by '\t' \
     --input-lines-terminated-by '\n' \
-    --input-optionally-enclosed-by '"' \
     --columns "ngay,nguon,chu_de,tu_khoa,so_lan_xuat_hien" \
+    --map-column-java ngay=String,nguon=String,chu_de=String,tu_khoa=String,so_lan_xuat_hien=Long \
+    --input-null-string '' \
+    --input-null-non-string '' \
     --num-mappers 1
 
 echo "============================================================"
