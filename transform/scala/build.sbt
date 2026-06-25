@@ -17,7 +17,11 @@ libraryDependencies ++= Seq(
   "com.sun.xml.bind" % "jaxb-core" % "2.3.0.1",
   "com.sun.xml.bind" % "jaxb-impl" % "2.3.1",
   "org.apache.spark" %% "spark-sql" % "3.5.0" % "provided",
-  "org.apache.spark" %% "spark-core" % "3.5.0" % "provided"
+  "org.apache.spark" %% "spark-core" % "3.5.0" % "provided",
+  "org.apache.spark" %% "spark-sql" % "3.5.0" % Test,
+  "org.apache.spark" %% "spark-core" % "3.5.0" % Test,
+  "org.scalatest" %% "scalatest" % "3.2.15" % Test,
+  "org.scalatestplus" %% "scalacheck-1-17" % "3.2.15.0" % Test
 )
 
 // Assembly plugin for single fat JAR
@@ -27,6 +31,6 @@ assembly / assemblyMergeStrategy := {
   case x => MergeStrategy.first
 }
 
-val jarName = "transform-keyword-version-10-56-21-06-2026"
+val jarName = "transform-keyword-version-22-21-25-06-2026"
 assembly / assemblyOutputPath := baseDirectory.value / s"$jarName.jar"
 assembly / mainClass := Some("Main")

@@ -1,7 +1,8 @@
 import java.util.Properties
 import scala.io.{Codec, Source}
 
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.types._
 import vn.hus.nlp.tokenizer.VietTokenizer
 
@@ -16,7 +17,7 @@ object Main {
       println("[WARN] stopwords_vi.txt not found on classpath")
       Set.empty
     } else {
-      Source.fromInputStream(is)(Codec.UTF8).getLines().map(_.trim.toLowerCase).filter(_.nonEmpty).toSet
+      Source.fromInputStream(is)(Codec.UTF8).getLines().map(_.dropWhile(_ == '\uFEFF').trim.toLowerCase).filter(_.nonEmpty).toSet
     }
   }
 
@@ -45,6 +46,14 @@ object Main {
 
   private def str(row: Row, idx: Int): String =
     if (row.isNullAt(idx)) "" else row.getString(idx)
+
+  private def safeSelect(df: DataFrame, cols: String*): DataFrame = {
+    val present = cols.filter(df.columns.contains)
+    val missing = cols.filterNot(df.columns.contains)
+    missing.foldLeft(df.select(present.map(df(_)): _*)) { (acc, c) =>
+      acc.withColumn(c, lit(""))
+    }
+  }
 
   def main(args: Array[String]): Unit = {
     val hdfsBase   = if (args.length > 0) args(0) else DEFAULT_HDFS_BASE
@@ -78,19 +87,7 @@ object Main {
         // We must ensure the columns exist before selecting them, or select them safely.
         // Let's check the schema. If "category" doesn't exist, we can create a dummy column or just select what exists.
         val df = spark.read.option("multiline", "true").json(path)
-        val columns = df.columns
-        val selectedDf = if (columns.contains("category")) {
-          df.select("publish_date", "source", "category", "content")
-        } else {
-          // If category doesn't exist, select content and others, and create an empty string for category
-          import org.apache.spark.sql.functions.lit
-          df.select(
-            df("publish_date"),
-            df("source"),
-            lit("").alias("category"),
-            df("content")
-          )
-        }
+        val selectedDf = safeSelect(df, "publish_date", "source", "category", "content")
         val rows = selectedDf.collect()
 
         rows.foreach { row =>
@@ -100,15 +97,19 @@ object Main {
           val content = str(row, 3)
 
           if (content.nonEmpty) {
-            tokenizer.segment(content)
-              .split("\\s+")
-              .filter(_.nonEmpty)
-              .map(_.replace("_", " ").trim.toLowerCase)
-              .filterNot(stopWords.contains)
-              .foreach { cleanToken =>
-                val key = (ngay, nguon, chuDe, cleanToken)
-                tokenCounts(key) = tokenCounts.getOrElse(key, 0L) + 1L
-              }
+            val segmented = tokenizer.segment(content)
+            if (segmented != null) {
+              segmented.split("\\s+")
+                .filter(_.nonEmpty)
+                .map(_.replace("_", " ").trim.toLowerCase)
+                .map(_.replaceAll("[^a-zA-Z0-9ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠ-ỹ ]", "").replaceAll("\\s+", " "))
+                .filter(_.nonEmpty)
+                .filterNot(stopWords.contains)
+                .foreach { cleanToken =>
+                  val key = (ngay, nguon, chuDe, cleanToken)
+                  tokenCounts(key) = tokenCounts.getOrElse(key, 0L) + 1L
+                }
+            }
           }
         }
         println(s"[$folder] processed ${rows.length} articles")
