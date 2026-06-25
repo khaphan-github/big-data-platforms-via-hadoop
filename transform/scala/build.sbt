@@ -31,6 +31,6 @@ assembly / assemblyMergeStrategy := {
   case x => MergeStrategy.first
 }
 
-val jarName = "transform-keyword-version-21-27-25-06-2026"
+val jarName = "transform-keyword-version-22-21-25-06-2026"
 assembly / assemblyOutputPath := baseDirectory.value / s"$jarName.jar"
 assembly / mainClass := Some("Main")

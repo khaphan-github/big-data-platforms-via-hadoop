@@ -58,49 +58,79 @@ class MainTest extends AnyFunSuite with Matchers with ScalaCheckPropertyChecks {
   // ---------------------------------------------------------------------------
   // Token processing with special characters
   // ---------------------------------------------------------------------------
+  private def cleanToken(raw: String): String =
+    raw.replace("_", " ").trim.toLowerCase
+      .replaceAll("[^a-zA-Z0-9ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝàáâãèéêìíòóôõùúýĂăĐđĨĩŨũƠơƯưẠ-ỹ ]", "")
+      .replaceAll("\\s+", " ")
+
   test("token processing replaces underscores with spaces") {
-    val raw = "trí_tuệ_nhân_tạo"
-    val clean = raw.replace("_", " ").trim.toLowerCase
-    clean shouldBe "trí tuệ nhân tạo"
+    cleanToken("trí_tuệ_nhân_tạo") shouldBe "trí tuệ nhân tạo"
   }
 
   test("token processing trims leading/trailing spaces and lowercases") {
-    val raw = "  HELLO_WORLD  "
-    val clean = raw.replace("_", " ").trim.toLowerCase
-    clean shouldBe "hello world"
+    cleanToken("  HELLO_WORLD  ") shouldBe "hello world"
   }
 
   test("token processing handles multiple consecutive underscores") {
-    val raw = "a__b___c"
-    val clean = raw.replace("_", " ").trim.toLowerCase
-    clean shouldBe "a  b   c"
+    cleanToken("a__b___c") shouldBe "a b c"
   }
 
-  test("token processing with punctuation and numbers") {
-    val raw = "abc123!@#"
-    raw.replace("_", " ").trim.toLowerCase shouldBe "abc123!@#"
+  test("token processing strips punctuation") {
+    cleanToken("abc123!@#") shouldBe "abc123"
   }
 
-  test("token processing with unicode special chars") {
-    val raw = "café_100%"
-    val clean = raw.replace("_", " ").trim.toLowerCase
-    clean shouldBe "café 100%"
+  test("token processing strips unicode special chars but keeps letters") {
+    cleanToken("café_100%") shouldBe "café 100"
+  }
+
+  test("token processing strips emoji") {
+    cleanToken("hello🎉world") shouldBe "helloworld"
+  }
+
+  test("token processing strips symbols ©®™") {
+    cleanToken("test©®™") shouldBe "test"
+  }
+
+  test("token processing strips email") {
+    cleanToken("test@example.com") shouldBe "testexamplecom"
+  }
+
+  test("token processing strips URL") {
+    cleanToken("https://example.com") shouldBe "httpsexamplecom"
+  }
+
+  test("token processing keeps Vietnamese accented chars") {
+    cleanToken("àáảãạèéẻẽẹêềếểễệđ") shouldBe "àáảãạèéẻẽẹêềếểễệđ"
+  }
+
+  test("token processing keeps Vietnamese with combining marks (NFD)") {
+    // a + combining grave (U+0300) + combining dot below (U+0323)
+    val nfdCombined = "a\u0300\u0323"
+    cleanToken(nfdCombined) shouldBe "a"
+  }
+
+  test("token processing keeps numbers with decimals") {
+    cleanToken("1.5") shouldBe "15"
   }
 
   test("empty token is filtered out") {
-    val tokens = "".trim
-    tokens.nonEmpty shouldBe false
+    "".trim.nonEmpty shouldBe false
   }
 
   test("whitespace-only token is filtered out") {
-    val tokens = "   ".trim
-    tokens.nonEmpty shouldBe false
+    "   ".trim.nonEmpty shouldBe false
   }
 
   test("token with only underscore becomes space then trimmed away") {
-    val raw = "_"
-    val clean = raw.replace("_", " ").trim
-    clean.isEmpty shouldBe true
+    cleanToken("_").isEmpty shouldBe true
+  }
+
+  test("token with only special chars becomes empty") {
+    cleanToken("🎉❤️😊").isEmpty shouldBe true
+  }
+
+  test("token with mix of letters and special chars keeps only letters") {
+    cleanToken("100% chất lượng!!!") shouldBe "100 chất lượng"
   }
 
   // ---------------------------------------------------------------------------
